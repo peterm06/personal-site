@@ -1,0 +1,20 @@
+base_url = "https://example.com"
+title = "Peter Miller"
+description = "Writing, notes, and a CV."
+default_language = "en"
+
+# Plain CSS lives in static/ — no Sass pipeline to keep the repo tidy.
+compile_sass = false
+build_search_index = false
+
+# Generate an Atom feed across the site. Remove if you don't want one.
+generate_feeds = true
+feed_filenames = ["atom.xml"]
+
+[markdown]
+# Code blocks styled with the mono face; syntax highlighting stays off (the default).
+# Curly quotes, em dashes, ellipses — nice for a text-forward site.
+smart_punctuation = true
+
+[extra]
+author = "Peter Miller"

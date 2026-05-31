@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ config.title }}{% endblock title %}</title>
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;700&family=Atkinson+Hyperlegible+Next:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/style.css">
+
+  <!-- Prerender same-origin links on hover/focus so transitions feel instant. -->
+  <script type="speculationrules">
+  {
+    "prerender": [{ "where": { "href_matches": "/*" }, "eagerness": "moderate" }]
+  }
+  </script>
+
+  <!-- No-flash: apply a stored theme before first paint. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || t === "light")
+          document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+  <script src="/js/theme.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-brand" href="/">
+      {% include "mark.html" %}
+      <span class="site-title">{{ config.title }}</span>
+    </a>
+    <nav class="site-nav">
+      <a href="/cv/">CV</a>
+      <a href="/five-stars/">5 Stars</a>
+      <a href="/tech-notes/">Tech Notes</a>
+      <a href="/colophon/">Colophon</a>
+      <button id="theme-toggle" type="button" aria-pressed="false">Dark</button>
+    </nav>
+  </header>
+
+  <main>
+    {% block content %}{% endblock content %}
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 {{ config.extra.author }} · <a href="/colophon/">Colophon</a></p>
+  </footer>
+</body>
+</html>

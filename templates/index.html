@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ config.title }}{% endblock title %}
+
+{% block content %}
+<section class="intro">
+  <div class="home-mark">{% include "mark.html" %}</div>
+  <h1>{{ config.title }}</h1>
+  <p class="lede">{{ config.description }}</p>
+</section>
+
+{% set tech = get_section(path="tech-notes/_index.md") %}
+{% set five = get_section(path="five-stars/_index.md") %}
+
+<section class="post-list">
+  <h2>Latest Tech Notes</h2>
+  <ul class="entries">
+    {% for page in tech.pages | slice(end=5) %}
+    <li>
+      <a href="{{ page.permalink }}" style="view-transition-name: post-{{ page.slug }}">{{ page.title }}</a>
+      <time datetime="{{ page.date }}">{{ page.date | date(format="%B %-d, %Y") }}</time>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <h2>Latest 5 Stars</h2>
+  <ul class="entries">
+    {% for page in five.pages | slice(end=5) %}
+    <li>
+      <a href="{{ page.permalink }}" style="view-transition-name: post-{{ page.slug }}">{{ page.title }}</a>
+      <time datetime="{{ page.date }}">{{ page.date | date(format="%B %-d, %Y") }}</time>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock content %}
