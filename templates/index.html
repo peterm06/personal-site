@@ -1,35 +1,71 @@
-{% extends "base.html" %}
-{% block title %}{{ config.title }}{% endblock title %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}{{ config.title }}{% endblock title
+%} {% block content %}
 <section class="intro">
-  <div class="home-mark">{% include "mark.html" %}</div>
-  <h1>{{ config.title }}</h1>
-  <p class="lede">{{ config.description }}</p>
+  <h1>Welcome</h1>
+  <p>
+    Check out my latest posts below or jump to my
+    <a href="/cv">CV</a>.<br />
+    Happy reading!
+  </p>
 </section>
 
-{% set tech = get_section(path="tech-notes/_index.md") %}
-{% set five = get_section(path="five-stars/_index.md") %}
+{% set tech = get_section(path="tech-notes/_index.md") %} {% set five =
+get_section(path="five-stars/_index.md") %} {% set all_pages = tech.pages |
+concat(with=five.pages) | sort(attribute="date", reverse=true) | slice(end=5) %}
 
 <section class="post-list">
-  <h2>Latest Tech Notes</h2>
+  <h2>Latest Posts</h2>
   <ul class="entries">
-    {% for page in tech.pages | slice(end=5) %}
+    {% for page in all_pages %}
     <li>
-      <a href="{{ page.permalink }}" style="view-transition-name: post-{{ page.slug }}">{{ page.title }}</a>
-      <time datetime="{{ page.date }}">{{ page.date | date(format="%B %-d, %Y") }}</time>
+      <a
+        href="{{ page.permalink }}"
+        style="view-transition-name: post-{{ page.slug }}"
+        >{{ page.title }}</a
+      >
+      <time datetime="{{ page.date }}"
+        >{{ page.date | date(format="%B %-d, %Y") }}</time
+      >
     </li>
     {% endfor %}
   </ul>
-
-  <h2>Latest 5 Stars</h2>
-  <ul class="entries">
-    {% for page in five.pages | slice(end=5) %}
+</section>
+<section>
+  <h2>Find Me Online</h2>
+  <ul class="social-links">
     <li>
-      <a href="{{ page.permalink }}" style="view-transition-name: post-{{ page.slug }}">{{ page.title }}</a>
-      <time datetime="{{ page.date }}">{{ page.date | date(format="%B %-d, %Y") }}</time>
+      <a
+        href="https://www.linkedin.com/in/peterhmiller/"
+        target="_blank"
+        rel="noopener noreferrer"
+        >LinkedIn</a
+      >
     </li>
-    {% endfor %}
+    <li>
+      <a
+        href="https://github.com/peterm06"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Github (peterm06)</a
+      >
+    </li>
+
+    <li>
+      <a
+        href="https://twitter.com/phmiller"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Twitter (phmiller)</a
+      >
+    </li>
+    <li>
+      <a
+        href="https://bsky.app/profile/peterhmiller.bsky.social"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Bluesky (peterhmiller.bsky.social)</a
+      >
+    </li>
   </ul>
 </section>
 {% endblock content %}
