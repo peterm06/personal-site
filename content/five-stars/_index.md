@@ -1,10 +1,10 @@
 +++
 title = "5 Stars"
-description = "Short notes about things I love."
+description = "Only the good stuff"
 sort_by = "date"
 template = "section.html"
 page_template = "page.html"
 
 +++
 
-Short notes about things I love — tools, books, coffee, places. No half measures here; everything listed earned the full five.
+Only the good stuff

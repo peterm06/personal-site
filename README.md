@@ -1,7 +1,6 @@
-# Personal site — Zola starter
+# Peter Miller - Personal Site
 
-A clean, content-forward personal site: CV, Colophon, 5 Stars, and Tech Notes.
-Single readable column, Atkinson Hyperlegible Next, light/dark theme.
+My personal site.
 
 ## Run locally
 
@@ -48,7 +47,7 @@ date = 2026-06-01
 Body text in Markdown.
 ```
 
-## Deploy (Netlify or Cloudflare Pages)
+## Deploy (Cloudflare Pages)
 
 Connect this repo and set:
 
