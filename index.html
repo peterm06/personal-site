@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Peter Miller</title>
+    <meta
+      name="description"
+      content="Peter Miller — software engineer in Washington, DC."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Atkinson+Hyperlegible:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #0f1218; /* near-black with an indigo undertone */
+        --paper: #e9ebee; /* primary text */
+        --muted: #8f98a3; /* secondary text */
+        --hairline: #232a34; /* dividers */
+        --jade: #4cc8a3; /* plumage sheen, stop 1 */
+        --sky: #5aa8e8; /* stop 2 */
+        --indigo: #7b83ea; /* stop 3 */
+        --violet: #a982e3; /* stop 4 */
+        --sheen-edge: var(--paper); /* gradient endpoints on the name */
+      }
+
+      [data-theme='light'] {
+        --ink: #f2f3f5; /* cool daylight paper */
+        --paper: #1a2028; /* ink text */
+        --muted: #5c6672;
+        --hairline: #d6dae0;
+        --jade: #1f9a78; /* sheen hues deepened for contrast */
+        --sky: #2f7fc4;
+        --indigo: #5560cf;
+        --violet: #7e58c4;
+        --sheen-edge: #1a2028;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html {
+        height: 100%;
+      }
+
+      body {
+        min-height: 100%;
+        display: grid;
+        justify-items: center; /* horizontal centering only */
+        align-content: start; /* anchor to the top */
+        background: var(--ink);
+        color: var(--paper);
+        font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+        font-size: 1.0625rem;
+        line-height: 1.6;
+        padding: clamp(4rem, 14vh, 8rem) 1.5rem 3rem;
+        transition:
+          background 240ms ease,
+          color 240ms ease;
+      }
+
+      main {
+        width: 100%;
+        max-width: 30rem;
+      }
+
+      /* --- Name: iridescent sheen, the one loud thing on the page --- */
+      h1 {
+        font-family: 'Fraunces', serif;
+        font-weight: 600;
+        font-size: clamp(2.6rem, 9vw, 3.4rem);
+        letter-spacing: -0.015em;
+        line-height: 1.1;
+        background: linear-gradient(
+          100deg,
+          var(--sheen-edge) 0%,
+          var(--jade) 28%,
+          var(--sky) 44%,
+          var(--indigo) 60%,
+          var(--violet) 76%,
+          var(--sheen-edge) 100%
+        );
+        background-size: 220% 100%;
+        background-position: 0% 0;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: sheen 14s ease-in-out infinite alternate;
+      }
+
+      @keyframes sheen {
+        from {
+          background-position: 0% 0;
+        }
+        to {
+          background-position: 100% 0;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        h1 {
+          animation: none;
+          background-position: 50% 0;
+        }
+      }
+
+      .tagline {
+        margin-top: 0.75rem;
+        color: var(--muted);
+      }
+
+      /* --- Links: Fraunces marquee, handle tucked beneath each name --- */
+      nav {
+        margin-top: 2.75rem;
+        display: grid;
+        gap: 1.1rem;
+      }
+
+      nav a {
+        display: block;
+        text-decoration: none;
+        color: var(--paper);
+        transition: color 160ms ease;
+      }
+
+      nav .name {
+        font-family: 'Fraunces', serif;
+        font-weight: 500;
+        font-size: clamp(1.45rem, 5vw, 1.8rem);
+        line-height: 1.25;
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.55rem;
+      }
+
+      nav .arrow {
+        font-family: 'Atkinson Hyperlegible', sans-serif;
+        font-size: 1rem;
+        color: var(--muted);
+        transition:
+          transform 160ms ease,
+          color 160ms ease;
+      }
+
+      nav .handle {
+        display: block;
+        color: var(--muted);
+        font-size: 0.875rem;
+        line-height: 1.4;
+        margin-top: 0.1rem;
+        transition: color 160ms ease;
+      }
+
+      nav a:hover,
+      nav a:focus-visible {
+        color: var(--hue);
+      }
+
+      nav a:hover .arrow,
+      nav a:focus-visible .arrow {
+        color: var(--hue);
+        transform: translateX(4px);
+      }
+
+      nav a:hover .handle,
+      nav a:focus-visible .handle {
+        color: var(--hue);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        nav a:hover .arrow,
+        nav a:focus-visible .arrow {
+          transform: none;
+        }
+      }
+
+      nav a:focus-visible {
+        outline: 2px solid var(--hue);
+        outline-offset: 4px;
+        border-radius: 2px;
+      }
+
+      nav a:nth-child(1) {
+        --hue: var(--jade);
+      }
+      nav a:nth-child(2) {
+        --hue: var(--sky);
+      }
+      nav a:nth-child(3) {
+        --hue: var(--indigo);
+      }
+      nav a:nth-child(4) {
+        --hue: var(--violet);
+      }
+
+      footer {
+        margin-top: 3rem;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      /* --- Theme toggle --- */
+      #theme-toggle {
+        position: fixed;
+        top: 1.25rem;
+        right: 1.25rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        display: grid;
+        place-items: center;
+        background: transparent;
+        border: 1px solid var(--hairline);
+        border-radius: 50%;
+        color: var(--muted);
+        cursor: pointer;
+        transition:
+          color 160ms ease,
+          border-color 160ms ease;
+      }
+
+      #theme-toggle:hover,
+      #theme-toggle:focus-visible {
+        color: var(--paper);
+        border-color: var(--muted);
+      }
+
+      #theme-toggle:focus-visible {
+        outline: 2px solid var(--indigo);
+        outline-offset: 3px;
+      }
+
+      #theme-toggle svg {
+        width: 1.125rem;
+        height: 1.125rem;
+      }
+
+      /* show the icon of the theme you'd switch to */
+      #theme-toggle .sun {
+        display: none;
+      }
+      #theme-toggle .moon {
+        display: block;
+      }
+      [data-theme='light'] #theme-toggle .sun {
+        display: block;
+      }
+      [data-theme='light'] #theme-toggle .moon {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="theme-toggle" type="button" aria-label="Switch to light mode">
+      <!-- sun: shown in light mode (click to go dark) -->
+      <svg
+        class="sun"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="4" />
+        <path
+          d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+        />
+      </svg>
+      <!-- moon: shown in dark mode (click to go light) -->
+      <svg
+        class="moon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+      </svg>
+    </button>
+
+    <main>
+      <h1>Peter Miller</h1>
+      <p class="tagline">Software engineer in Washington,&nbsp;DC.</p>
+
+      <nav aria-label="Profiles">
+        <a href="https://www.linkedin.com/in/peterhmiller/">
+          <span class="name"
+            >LinkedIn<span class="arrow" aria-hidden="true">&rarr;</span></span
+          >
+          <span class="handle">peterhmiller</span>
+        </a>
+        <a href="https://github.com/peterm06">
+          <span class="name"
+            >GitHub<span class="arrow" aria-hidden="true">&rarr;</span></span
+          >
+          <span class="handle">peterm06</span>
+        </a>
+        <a href="https://bsky.app/profile/peterhmiller.bsky.social">
+          <span class="name"
+            >Bluesky<span class="arrow" aria-hidden="true">&rarr;</span></span
+          >
+          <span class="handle">@peterhmiller.bsky.social</span>
+        </a>
+        <a href="https://twitter.com/phmiller">
+          <span class="name"
+            >Twitter<span class="arrow" aria-hidden="true">&rarr;</span></span
+          >
+          <span class="handle">@phmiller</span>
+        </a>
+      </nav>
+
+      <footer>&copy; 2026 Peter Miller</footer>
+    </main>
+
+    <script>
+      ;(function () {
+        var root = document.documentElement
+        var btn = document.getElementById('theme-toggle')
+
+        function stored() {
+          try {
+            return localStorage.getItem('theme')
+          } catch (e) {
+            return null
+          }
+        }
+
+        function store(theme) {
+          try {
+            localStorage.setItem('theme', theme)
+          } catch (e) {
+            /* no persistence available */
+          }
+        }
+
+        function apply(theme) {
+          if (theme === 'light') {
+            root.setAttribute('data-theme', 'light')
+            btn.setAttribute('aria-label', 'Switch to dark mode')
+          } else {
+            root.removeAttribute('data-theme')
+            btn.setAttribute('aria-label', 'Switch to light mode')
+          }
+        }
+
+        var initial = stored()
+        if (!initial) {
+          initial = window.matchMedia('(prefers-color-scheme: light)').matches
+            ? 'light'
+            : 'dark'
+        }
+        apply(initial)
+
+        btn.addEventListener('click', function () {
+          var next =
+            root.getAttribute('data-theme') === 'light' ? 'dark' : 'light'
+          apply(next)
+          store(next)
+        })
+      })()
+    </script>
+  </body>
+</html>
