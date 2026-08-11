@@ -477,6 +477,27 @@ HTML = """<!doctype html>
       [data-theme='light'] #theme-toggle .sun {{ display: block; }}
       [data-theme='light'] #theme-toggle .moon {{ display: none; }}
     </style>
+    <script>
+      /* Runs before first paint so the stored theme is already applied when
+         the page renders -- otherwise light-mode visitors see a flash of the
+         default dark palette on every navigation. */
+      ;(function () {{
+        var theme = null
+        try {{
+          theme = localStorage.getItem('theme')
+        }} catch (e) {{
+          /* no persistence available */
+        }}
+        if (!theme) {{
+          theme = window.matchMedia('(prefers-color-scheme: light)').matches
+            ? 'light'
+            : 'dark'
+        }}
+        if (theme === 'light') {{
+          document.documentElement.setAttribute('data-theme', 'light')
+        }}
+      }})()
+    </script>
   </head>
   <body>
     <button id="theme-toggle" type="button" aria-label="Switch to light mode">
@@ -513,29 +534,28 @@ HTML = """<!doctype html>
     </main>
 
     <script>
+      /* The theme itself is applied by the inline script in <head>; this only
+         wires up the toggle. */
       ;(function () {{
         var root = document.documentElement
         var btn = document.getElementById('theme-toggle')
-        function stored() {{ try {{ return localStorage.getItem('theme') }} catch (e) {{ return null }} }}
-        function store(theme) {{ try {{ localStorage.setItem('theme', theme) }} catch (e) {{}} }}
-        function apply(theme) {{
-          if (theme === 'light') {{
+        function isLight() {{ return root.getAttribute('data-theme') === 'light' }}
+        function label() {{
+          btn.setAttribute(
+            'aria-label',
+            isLight() ? 'Switch to dark mode' : 'Switch to light mode'
+          )
+        }}
+        label()
+        btn.addEventListener('click', function () {{
+          var next = isLight() ? 'dark' : 'light'
+          if (next === 'light') {{
             root.setAttribute('data-theme', 'light')
-            btn.setAttribute('aria-label', 'Switch to dark mode')
           }} else {{
             root.removeAttribute('data-theme')
-            btn.setAttribute('aria-label', 'Switch to light mode')
           }}
-        }}
-        var initial = stored()
-        if (!initial) {{
-          initial = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
-        }}
-        apply(initial)
-        btn.addEventListener('click', function () {{
-          var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light'
-          apply(next)
-          store(next)
+          try {{ localStorage.setItem('theme', next) }} catch (e) {{}}
+          label()
         }})
       }})()
     </script>
