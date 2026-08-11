@@ -42,6 +42,20 @@
         --sheen-edge: #1a2028;
       }
 
+      /* --- Cross-document view transitions ---
+         Same-origin navigations cross-fade instead of hard-cutting. Requires
+         http(s) (not file://) and is Chrome/Safari-only today; unsupported
+         browsers just navigate instantly, so this is purely additive. */
+      @view-transition {
+        navigation: auto;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        @view-transition {
+          navigation: none;
+        }
+      }
+
       * {
         box-sizing: border-box;
         margin: 0;
@@ -81,6 +95,9 @@
         letter-spacing: -0.015em;
         line-height: 1.2;
         padding-bottom: 0.12em; /* room for descenders under background-clip: text */
+        /* paired with the '← Peter Miller' back-link on subpages, so the name
+           shrinks up into the breadcrumb across a navigation */
+        view-transition-name: site-name;
         background: linear-gradient(
           100deg,
           var(--sheen-edge) 0%,
@@ -309,6 +326,7 @@
         right: 1.25rem;
         width: 2.5rem;
         height: 2.5rem;
+        view-transition-name: theme-toggle; /* stays put across navigations */
         display: grid;
         place-items: center;
         background: transparent;
@@ -437,7 +455,9 @@
       </nav>
 
       <section class="pages" aria-label="Pages">
-        <a href="/workouts">
+        <!-- trailing slash is deliberate: /workouts would 301 to /workouts/,
+             and a redirect makes the browser skip the view transition -->
+        <a href="/workouts/">
           <span class="squares" aria-hidden="true">
             <span class="sq j"></span>
             <span class="sq j"></span>

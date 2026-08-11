@@ -13,8 +13,17 @@ Atkinson Hyperlegible) are the one external dependency, loaded from Google Fonts
 Pages:
 
 - `index.html` — the landing page (name + profile links), served at `/`.
-- `workouts.html` — the fitness page (`/workouts`), a day-level workout
-  calendar. **Generated** — see below; do not hand-edit.
+- `workouts/index.html` — the fitness page, a day-level workout calendar.
+  **Generated** — see below; do not hand-edit. The directory-plus-index layout
+  is deliberate: it yields the clean `/workouts` URL on any static host without
+  extensionless-URL rewriting.
+
+Pages navigate with **cross-document view transitions** (`@view-transition`,
+plus a shared `view-transition-name: site-name` pairing the landing `h1` with
+each subpage's `← Peter Miller` back-link, and `theme-toggle` to keep the fixed
+toggle anchored). This is CSS-only and additive — unsupported browsers just
+navigate instantly — but it requires `http(s)`, so it does not appear over
+`file://`.
 
 ## Palette & theming
 
@@ -35,13 +44,13 @@ Theme selection: an inline script reads `localStorage.theme`, falling back to
 `prefers-color-scheme`. The toggle button sets/removes `data-theme='light'` on
 `<html>`. Copy this block verbatim into any new page so theming stays consistent.
 
-The `workouts.html` calendar adds its own vars (`--otf`, `--cp`, `--empty`) —
+The workouts calendar adds its own vars (`--otf`, `--cp`, `--empty`) —
 one flat color per era, defined in both themes. Edit those in the generator, not
 the output.
 
 ## The workouts page (generated)
 
-`workouts.html` is produced by [`scripts/gen_workouts.py`](scripts/gen_workouts.py)
+`workouts/index.html` is produced by [`scripts/gen_workouts.py`](scripts/gen_workouts.py)
 from the CSVs in `data/fitness/`:
 
 - `otf_workouts_full.csv` — Orangetheory sessions (dates, splat points, …)
@@ -64,18 +73,20 @@ python3 scripts/gen_workouts.py
 ```
 
 To change colors, geometry, or copy, edit the generator and re-run — never edit
-`workouts.html` directly, as it is overwritten.
+`workouts/index.html` directly, as it is overwritten.
 
 ## Previewing
 
-Just open the file — there is no server to run:
+`open index.html` is fine for most work, but two things only behave correctly
+over `http(s)`: the `/workouts` URL and the view transitions. To see the site as
+deployed, serve it:
 
 ```bash
-open index.html
+python3 -m http.server 8000
 ```
 
-(or `open workouts.html`). Any static file server works too, e.g.
-`python3 -m http.server`, but it is not required.
+Then visit <http://localhost:8000>. (`.claude/launch.json` defines this as the
+`static` preview server.)
 
 ## Conventions
 

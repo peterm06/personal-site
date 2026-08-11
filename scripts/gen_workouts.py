@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate workouts.html from the CSVs in data/fitness/.
+"""Generate workouts/index.html from the CSVs in data/fitness/.
 
 A day-level calendar heatmap in the GitHub-contributions style: one block per
 year (newest on top), seven day-of-week rows by ~53 week columns, one square per
@@ -14,7 +14,11 @@ JavaScript and no build step. Re-run this whenever cp_classes.csv gets new rows:
 
 It reads:  data/fitness/otf_workouts_full.csv
            data/fitness/cp_classes.csv
-and writes: workouts.html  (served at /workouts)
+and writes: workouts/index.html
+
+The directory-plus-index layout is deliberate: it serves at the clean URL
+/workouts on any static host (including plain file servers and GitHub Pages)
+without needing extensionless-URL rewriting.
 """
 
 import csv
@@ -23,7 +27,7 @@ import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data", "fitness")
-OUT = os.path.join(ROOT, "workouts.html")
+OUT = os.path.join(ROOT, "workouts", "index.html")
 
 YEAR_MIN, YEAR_MAX = 2018, 2026
 
@@ -267,6 +271,20 @@ HTML = """<!doctype html>
         --cp: #7e58c4;
       }}
 
+      /* --- Cross-document view transitions ---
+         Same-origin navigations cross-fade instead of hard-cutting. Requires
+         http(s) (not file://) and is Chrome/Safari-only today; unsupported
+         browsers just navigate instantly, so this is purely additive. */
+      @view-transition {{
+        navigation: auto;
+      }}
+
+      @media (prefers-reduced-motion: reduce) {{
+        @view-transition {{
+          navigation: none;
+        }}
+      }}
+
       * {{
         box-sizing: border-box;
         margin: 0;
@@ -308,6 +326,11 @@ HTML = """<!doctype html>
         color: var(--muted);
         text-decoration: none;
         border-bottom: 1px solid var(--hairline);
+        /* paired with the landing page's <h1>, so the big name shrinks up into
+           this breadcrumb across a navigation. inline-block keeps it a single
+           box -- a name on a fragmented inline would skip the transition. */
+        display: inline-block;
+        view-transition-name: site-name;
       }}
 
       .eyebrow a:hover,
@@ -451,6 +474,7 @@ HTML = """<!doctype html>
         right: 1.25rem;
         width: 2.5rem;
         height: 2.5rem;
+        view-transition-name: theme-toggle; /* stays put across navigations */
         display: grid;
         place-items: center;
         background: transparent;
@@ -576,6 +600,7 @@ def main():
         cp_count=f"{len(cp_dates):,}",
     )
 
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w") as f:
         f.write(html)
     otf_lo, otf_hi = fmt_range(otf_dates)
