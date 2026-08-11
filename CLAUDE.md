@@ -49,10 +49,12 @@ from the CSVs in `data/fitness/`:
 - `otf_annotations.csv` — injury/closure notes (present but not rendered)
 
 The hero is a GitHub-style day-level calendar: one block per year (newest on
-top), seven day-of-week rows by ~53 week columns, one square per day. Color
-marks the era only — flat `--otf` for Orangetheory, flat `--cp` for CorePower —
-not intensity. A summary card above it carries the totals. The whole SVG scales
-to the page width (no horizontal scroll).
+top), one square per day. Color marks the era only — flat `--otf` for
+Orangetheory, flat `--cp` for CorePower — not intensity. A summary card above
+it carries the totals. The generator emits **two** pre-rendered SVGs — a wide
+layout (one ~53-week strip per year) and a narrow one (each year wrapped into
+rows of 4 months) — and a `max-width: 600px` media query swaps between them,
+so the page is responsive with no JS and no horizontal scroll.
 
 The SVG is **pre-rendered** into the HTML so the page works with no JS.
 Regenerate whenever the CSVs change (e.g. new CorePower classes):

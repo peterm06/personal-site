@@ -203,6 +203,99 @@
         --hue: var(--violet);
       }
 
+      /* --- Pages: mini-heatmap teaser linking to /workouts --- */
+      .pages {
+        margin-top: 2.75rem;
+        padding-top: 2.25rem;
+        border-top: 1px solid var(--hairline);
+      }
+
+      .pages a {
+        display: block;
+        text-decoration: none;
+        color: var(--paper);
+        transition: color 160ms ease;
+        --hue: var(--violet);
+      }
+
+      .pages .squares {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 0.6rem;
+      }
+
+      .pages .sq {
+        width: 11px;
+        height: 11px;
+        border-radius: 3px;
+        background: var(--hairline);
+      }
+
+      .pages .sq.j {
+        background: var(--jade);
+      }
+
+      .pages .sq.v {
+        background: var(--violet);
+      }
+
+      .pages .name {
+        font-family: 'Fraunces', serif;
+        font-weight: 500;
+        font-size: clamp(1.45rem, 5vw, 1.8rem);
+        line-height: 1.25;
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.55rem;
+      }
+
+      .pages .arrow {
+        font-family: 'Atkinson Hyperlegible', sans-serif;
+        font-size: 1rem;
+        color: var(--muted);
+        transition:
+          transform 160ms ease,
+          color 160ms ease;
+      }
+
+      .pages .handle {
+        display: block;
+        color: var(--muted);
+        font-size: 0.875rem;
+        line-height: 1.4;
+        margin-top: 0.1rem;
+        transition: color 160ms ease;
+      }
+
+      .pages a:hover,
+      .pages a:focus-visible {
+        color: var(--hue);
+      }
+
+      .pages a:hover .arrow,
+      .pages a:focus-visible .arrow {
+        color: var(--hue);
+        transform: translateX(4px);
+      }
+
+      .pages a:hover .handle,
+      .pages a:focus-visible .handle {
+        color: var(--hue);
+      }
+
+      .pages a:focus-visible {
+        outline: 2px solid var(--hue);
+        outline-offset: 4px;
+        border-radius: 2px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .pages a:hover .arrow,
+        .pages a:focus-visible .arrow {
+          transform: none;
+        }
+      }
+
       footer {
         margin-top: 3rem;
         color: var(--muted);
@@ -321,6 +414,35 @@
           <span class="handle">@phmiller</span>
         </a>
       </nav>
+
+      <section class="pages" aria-label="Pages">
+        <a href="/workouts">
+          <span class="squares" aria-hidden="true">
+            <span class="sq j"></span>
+            <span class="sq j"></span>
+            <span class="sq"></span>
+            <span class="sq j"></span>
+            <span class="sq j"></span>
+            <span class="sq j"></span>
+            <span class="sq"></span>
+            <span class="sq j"></span>
+            <span class="sq v"></span>
+            <span class="sq v"></span>
+            <span class="sq"></span>
+            <span class="sq v"></span>
+            <span class="sq v"></span>
+            <span class="sq"></span>
+            <span class="sq v"></span>
+            <span class="sq v"></span>
+          </span>
+          <span class="name"
+            >Fitness by the numbers<span class="arrow" aria-hidden="true"
+              >&rarr;</span
+            ></span
+          >
+          <span class="handle">every workout since 2018</span>
+        </a>
+      </section>
 
       <footer>&copy; 2026 Peter Miller</footer>
     </main>

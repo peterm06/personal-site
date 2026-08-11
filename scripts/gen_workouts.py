@@ -45,6 +45,16 @@ N_YEARS = YEAR_MAX - YEAR_MIN + 1
 SVG_W = PAD_L + WEEKS * COL_W + 6
 SVG_H = PAD_T + N_YEARS * (HEAD_H + BLOCK_H) + (N_YEARS - 1) * BLOCK_GAP + 6
 
+# --- narrow layout: each year wraps into rows of a few months ---
+M_PER_ROW = 4                      # months per row on narrow screens
+M_COLS = 6                         # max week-columns a month can span
+M_SLOT_W = M_COLS * COL_W + 12     # horizontal slot per month
+M_ROW_STRIDE = MONTH_LABEL_H + BLOCK_H + 12
+M_ROWS = 12 // M_PER_ROW           # month-rows per year
+M_YEAR_H = YEAR_LABEL_H + M_ROWS * M_ROW_STRIDE
+M_SVG_W = PAD_L + M_PER_ROW * M_SLOT_W - 6
+M_SVG_H = PAD_T + N_YEARS * (M_YEAR_H + BLOCK_GAP) - BLOCK_GAP + 6
+
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -96,7 +106,7 @@ def build_svg(otf_days, cp_days):
     years = list(range(YEAR_MAX, YEAR_MIN - 1, -1))
 
     parts = [
-        f'<svg class="heatmap" viewBox="0 0 {SVG_W} {SVG_H}" '
+        f'<svg class="heatmap heatmap-wide" viewBox="0 0 {SVG_W} {SVG_H}" '
         f'role="img" preserveAspectRatio="xMinYMin meet" '
         f'aria-label="A calendar of workout days, one block per year from 2026 '
         f'(top) down to 2018 (bottom). Each square is a day: Orangetheory days '
@@ -131,17 +141,69 @@ def build_svg(otf_days, cp_days):
             row = (di + start_dow) % 7
             x = PAD_L + col * COL_W
             y = grid_top + row * ROW_H
-            if d in otf_days:
-                fill, cls = "var(--otf)", "cell otf"
-            elif d in cp_days:
-                fill, cls = "var(--cp)", "cell cp"
-            else:
-                fill, cls = "var(--empty)", "cell empty"
+            fill, cls = cell_attrs(d, otf_days, cp_days)
             parts.append(
                 f'<rect class="{cls}" x="{x}" y="{y}" width="{CELL}" '
                 f'height="{CELL}" rx="2.5" fill="{fill}"/>'
             )
             d += dt.timedelta(days=1)
+
+    parts.append("</svg>")
+    return "\n      ".join(parts)
+
+
+def cell_attrs(d, otf_days, cp_days):
+    if d in otf_days:
+        return "var(--otf)", "cell otf"
+    if d in cp_days:
+        return "var(--cp)", "cell cp"
+    return "var(--empty)", "cell empty"
+
+
+def build_svg_mobile(otf_days, cp_days):
+    """Narrow-screen variant: each year wraps into rows of M_PER_ROW months."""
+    years = list(range(YEAR_MAX, YEAR_MIN - 1, -1))
+
+    parts = [
+        f'<svg class="heatmap heatmap-narrow" viewBox="0 0 {M_SVG_W} {M_SVG_H}" '
+        f'role="img" preserveAspectRatio="xMinYMin meet" '
+        f'aria-label="A calendar of workout days, one block per year from 2026 '
+        f'(top) down to 2018 (bottom), each year wrapped into rows of '
+        f'{M_PER_ROW} months. Each square is a day: Orangetheory days 2018 '
+        f'through 2023 in one color, CorePower days 2023 to 2026 in another.">'
+    ]
+
+    for yi, year in enumerate(years):
+        year_top = PAD_T + yi * (M_YEAR_H + BLOCK_GAP)
+        parts.append(
+            f'<text class="ylabel" x="{PAD_L}" y="{year_top + YEAR_LABEL_H - 6}">{year}</text>'
+        )
+
+        for m in range(1, 13):
+            slot = (m - 1) % M_PER_ROW
+            mrow = (m - 1) // M_PER_ROW
+            ox = PAD_L + slot * M_SLOT_W
+            oy = year_top + YEAR_LABEL_H + mrow * M_ROW_STRIDE
+            grid_top = oy + MONTH_LABEL_H
+
+            parts.append(f'<text class="mlabel" x="{ox}" y="{oy + MONTH_LABEL_H - 5}">{MONTHS[m - 1]}</text>')
+
+            first = dt.date(year, m, 1)
+            nxt = dt.date(year + (m == 12), m % 12 + 1, 1)
+            start_dow = dow_sun(first)
+            d = first
+            while d < nxt:
+                di = (d - first).days
+                col = (di + start_dow) // 7
+                row = (di + start_dow) % 7
+                x = ox + col * COL_W
+                y = grid_top + row * ROW_H
+                fill, cls = cell_attrs(d, otf_days, cp_days)
+                parts.append(
+                    f'<rect class="{cls}" x="{x}" y="{y}" width="{CELL}" '
+                    f'height="{CELL}" rx="2.5" fill="{fill}"/>'
+                )
+                d += dt.timedelta(days=1)
 
     parts.append("</svg>")
     return "\n      ".join(parts)
@@ -298,9 +360,9 @@ HTML = """<!doctype html>
         margin-top: 2.25rem;
         border: 1px solid var(--hairline);
         border-radius: 14px;
-        padding: 1.5rem 1.75rem;
-        display: grid;
-        gap: 1.25rem;
+        padding: 1.5rem 2rem;
+        width: fit-content;
+        max-width: 100%;
       }}
       .summary-primary {{
         display: flex;
@@ -362,6 +424,26 @@ HTML = """<!doctype html>
         stroke: rgba(0, 0, 0, 0.06);
       }}
 
+      /* --- two calendar layouts: wide (one strip per year) and narrow
+             (each year wrapped into rows of a few months) --- */
+      svg.heatmap-narrow {{ display: none; }}
+
+      @media (max-width: 600px) {{
+        .summary-card {{
+          width: 100%;
+        }}
+        .summary-primary {{
+          justify-content: center;
+          text-align: center;
+          gap: 1.25rem 2.5rem;
+        }}
+        .summary-primary .stat:first-child {{
+          flex-basis: 100%;
+        }}
+        svg.heatmap-wide {{ display: none; }}
+        svg.heatmap-narrow {{ display: block; }}
+      }}
+
       /* --- theme toggle (same as index) --- */
       #theme-toggle {{
         position: fixed;
@@ -411,7 +493,7 @@ HTML = """<!doctype html>
       <p class="eyebrow"><a href="/">&larr; Peter Miller</a></p>
       <h1>Fitness by the numbers</h1>
       <p class="lede">
-        A running log of my fitness classes since 2018.
+        Every workout since 2018, one square at a time.
       </p>
 
       <div class="summary-card">
@@ -424,7 +506,8 @@ HTML = """<!doctype html>
 
       <section class="hero" aria-label="Workout calendar">
         <div class="heatmap-wrap">
-      {svg}
+      {svg_wide}
+      {svg_narrow}
         </div>
       </section>
     </main>
@@ -465,10 +548,9 @@ def main():
     otf_days, otf_dates, otf_count, otf_splat = read_otf()
     cp_days, cp_dates, fams = read_cp()
 
-    svg = build_svg(otf_days, cp_days)
-
     html = HTML.format(
-        svg=svg,
+        svg_wide=build_svg(otf_days, cp_days),
+        svg_narrow=build_svg_mobile(otf_days, cp_days),
         total=f"{otf_count + len(cp_dates):,}",
         otf_count=f"{otf_count:,}",
         cp_count=f"{len(cp_dates):,}",
