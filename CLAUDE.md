@@ -19,11 +19,22 @@ Pages:
   extensionless-URL rewriting.
 
 Pages navigate with **cross-document view transitions** (`@view-transition`,
-plus a shared `view-transition-name: site-name` pairing the landing `h1` with
-each subpage's `← Peter Miller` back-link, and `theme-toggle` to keep the fixed
-toggle anchored). This is CSS-only and additive — unsupported browsers just
-navigate instantly — but it requires `http(s)`, so it does not appear over
+plus `view-transition-name: theme-toggle` so the fixed toggle does not
+cross-fade with the page). This is CSS-only and additive — unsupported browsers
+just navigate instantly — but it requires `http(s)`, so it does not appear over
 `file://`.
+
+Two things to leave alone here:
+
+- **Don't pair mismatched elements with a shared `view-transition-name`.** A
+  morph between the landing `h1` (480×72, 54px, gradient) and a subpage
+  back-link (91×23, 14px, muted) was tried and reverted: snapshots are rasters
+  stretched into one animating box, so aspect ratios that far apart visibly
+  squash and ghost the text. Pair elements of similar size and shape, or not at
+  all.
+- **`scrollbar-gutter: stable` on `html` is load-bearing.** The landing page
+  does not scroll and subpages do, so without it a scrollbar appears mid-
+  navigation and shifts the centred content and the fixed toggle sideways.
 
 ## Palette & theming
 
