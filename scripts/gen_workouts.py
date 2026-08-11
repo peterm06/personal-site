@@ -293,6 +293,10 @@ HTML = """<!doctype html>
 
       html {{
         height: 100%;
+        /* reserve the scrollbar gutter on every page: the landing page does not
+           scroll and this one does, so without this the centred content and the
+           fixed toggle shift sideways by the scrollbar width on navigation */
+        scrollbar-gutter: stable;
       }}
 
       body {{
@@ -326,11 +330,6 @@ HTML = """<!doctype html>
         color: var(--muted);
         text-decoration: none;
         border-bottom: 1px solid var(--hairline);
-        /* paired with the landing page's <h1>, so the big name shrinks up into
-           this breadcrumb across a navigation. inline-block keeps it a single
-           box -- a name on a fragmented inline would skip the transition. */
-        display: inline-block;
-        view-transition-name: site-name;
       }}
 
       .eyebrow a:hover,
