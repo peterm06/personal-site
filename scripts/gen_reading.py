@@ -126,6 +126,29 @@ def build_svg(years, per_row, with_titles):
     )
 
 
+def build_list(years):
+    """Five-star books only, grouped by year (newest first), in finish order."""
+    blocks = []
+    for year in sorted(years, reverse=True):
+        books = years[year]
+        fives = [b for b in books if b[3]]
+        if not fives:
+            continue
+        items = "".join(
+            f'<li><span class="bullet" aria-hidden="true"></span>'
+            f'<span class="txt"><span class="t">{esc(title)}</span> '
+            f'<span class="a">{esc(author)}</span></span>'
+            f'<span class="m">{MONTHS[d.month - 1]}</span></li>'
+            for d, title, author, _ in fives
+        )
+        blocks.append(
+            f'<div class="ygroup"><h2>{year}'
+            f'<span class="yn">{len(fives)} of {len(books)} books</span></h2>'
+            f"<ul>{items}</ul></div>"
+        )
+    return "\n        ".join(blocks)
+
+
 HTML = """<!doctype html>
 <html lang="en">
   <head>
@@ -379,6 +402,15 @@ HTML = """<!doctype html>
         fill: url(#metal);
       }}
 
+      /* Hover picks a square out with a crisp outline. --paper inverts with the
+         theme, so it reads against both the slate and the gold. The stroke is
+         centred on the edge, so half of it sits in the 3px gutter and never
+         touches a neighbour. */
+      .mosaic .b:hover {{
+        stroke: var(--paper);
+        stroke-width: 1.5;
+      }}
+
       /* Under reduced motion, skip the drifting gradient entirely and use one
          flat metal tone -- SMIL animation cannot be paused from CSS. */
       @media (prefers-reduced-motion: reduce) {{
@@ -423,6 +455,119 @@ HTML = """<!doctype html>
         opacity: 0.8;
       }}
 
+      /* --- view switch: a segmented control built from two radios --- */
+      .sr-only {{
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }}
+      .viewswitch {{
+        border: 1px solid var(--hairline);
+        border-radius: 999px;
+        padding: 3px;
+        display: inline-flex;
+        gap: 2px;
+        margin-left: auto; /* pushes it to the far edge of the card */
+        align-self: center;
+      }}
+      .viewswitch input {{
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }}
+      .viewswitch label {{
+        font-size: 0.8rem;
+        line-height: 1;
+        padding: 0.45rem 0.85rem;
+        border-radius: 999px;
+        color: var(--muted);
+        cursor: pointer;
+        white-space: nowrap;
+        transition:
+          background 160ms ease,
+          color 160ms ease;
+      }}
+      .viewswitch label:hover {{ color: var(--paper); }}
+      .viewswitch input:checked + label {{
+        background: var(--hairline);
+        color: var(--paper);
+      }}
+      .viewswitch input:focus-visible + label {{
+        outline: 2px solid var(--indigo);
+        outline-offset: 2px;
+      }}
+
+      /* --- five-star list view --- */
+      .list-view {{ display: none; }}
+      body:has(#v-list:checked) .hero {{ display: none; }}
+      body:has(#v-list:checked) .list-view {{ display: block; }}
+
+      .list-view {{ margin-top: 2.25rem; }}
+      .ygroup + .ygroup {{ margin-top: 2rem; }}
+      .ygroup h2 {{
+        font-family: 'Fraunces', serif;
+        font-weight: 600;
+        font-size: 1.15rem;
+        color: var(--muted);
+        display: flex;
+        align-items: baseline;
+        gap: 0.6rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--hairline);
+      }}
+      .ygroup h2 .yn {{
+        font-family: 'Atkinson Hyperlegible', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 400;
+        margin-left: auto;
+        opacity: 0.75;
+      }}
+      .ygroup ul {{
+        list-style: none;
+        margin-top: 0.85rem;
+        display: grid;
+        gap: 0.55rem;
+      }}
+      .ygroup li {{
+        display: grid;
+        grid-template-columns: 11px 1fr auto;
+        gap: 0.7rem;
+        align-items: baseline;
+        font-size: 0.95rem;
+        line-height: 1.45;
+      }}
+      .ygroup .bullet {{
+        width: 11px;
+        height: 11px;
+        border-radius: 3px;
+        /* the SVG gradient cannot be reused in HTML, so this is the same ramp
+           expressed as a CSS gradient -- matching the legend and card dot */
+        background: linear-gradient(
+          135deg,
+          var(--metal-2),
+          var(--metal-3),
+          var(--metal-4),
+          var(--metal-1)
+        );
+        transform: translateY(0.1em);
+      }}
+      .ygroup .a {{
+        color: var(--muted);
+        font-size: 0.9rem;
+      }}
+      .ygroup .m {{
+        color: var(--muted);
+        font-size: 0.75rem;
+        white-space: nowrap;
+        opacity: 0.7;
+      }}
+
       /* --- narrow screens: fewer books per row so squares stay legible --- */
       @media (max-width: 600px) {{
         .summary-card {{ width: 100%; }}
@@ -431,9 +576,15 @@ HTML = """<!doctype html>
           text-align: center;
           gap: 1.25rem 2.5rem;
         }}
-        /* the total gets its own row, the other two share the next one --
-           without this the three stats wrap 2-then-1 and read lopsided */
+        /* the total gets its own row, the other stat shares the next one --
+           without this they wrap lopsided */
         .summary-primary .stat:first-child {{ flex-basis: 100%; }}
+        /* the switch drops to its own centred row rather than hugging an edge */
+        .viewswitch {{
+          flex-basis: 100%;
+          margin-left: 0;
+          justify-content: center;
+        }}
         svg.wide {{ display: none; }}
         svg.narrow {{ display: block; }}
         .hint {{ display: none; }} /* no hover on touch */
@@ -537,7 +688,17 @@ HTML = """<!doctype html>
         <div class="summary-primary">
           <div class="stat"><div class="num">{total}</div><div class="lbl">books since 2008</div></div>
           <div class="stat"><div class="num"><span class="dot"></span>{five}</div><div class="lbl">five stars</div></div>
-          <div class="stat"><div class="num">{per_month}</div><div class="lbl">per month</div></div>
+
+          <!-- CSS-only view switch: two radios drive `body:has(:checked)` rules
+               below, so swapping views costs no JavaScript. Without :has()
+               support the mosaic simply stays put, which is the default. -->
+          <fieldset class="viewswitch">
+            <legend class="sr-only">Choose a view</legend>
+            <input type="radio" name="view" id="v-mosaic" checked />
+            <label for="v-mosaic">Mosaic</label>
+            <input type="radio" name="view" id="v-list" />
+            <label for="v-list">Five-star list</label>
+          </fieldset>
         </div>
       </div>
 
@@ -555,6 +716,10 @@ HTML = """<!doctype html>
           </div>
         </div>
         <p class="hint">Hover a square for the book, author, and month.</p>
+      </section>
+
+      <section class="list-view" aria-label="Five-star books by year">
+        {list_html}
       </section>
     </main>
 
@@ -594,13 +759,12 @@ def main():
     years = by_year(books)
     five = sum(1 for b in books if b[3])
 
-    span_months = len(years) * 12
     html = HTML.format(
         total=f"{len(books):,}",
         five=f"{five:,}",
-        per_month=f"{len(books) / span_months:.1f}",
         svg_wide=build_svg(years, PER_ROW_WIDE, with_titles=True),
         svg_narrow=build_svg(years, PER_ROW_NARROW, with_titles=False),
+        list_html=build_list(years),
     )
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

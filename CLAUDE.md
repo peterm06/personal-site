@@ -126,7 +126,14 @@ Three things here are load-bearing:
   square should look dim enough to imply it is *less* of a five-star.
 - **Hover tooltips are native `<title>` children, wide layout only.** Zero JS.
   The narrow layout omits them because touch screens have no hover, which also
-  keeps ~150 KB out of the file.
+  keeps ~150 KB out of the file. Hovering also strokes the square with
+  `--paper`, which inverts with the theme so it reads over both slate and gold.
+- **The Mosaic / Five-star-list switch is CSS-only.** Two hidden radios in the
+  summary card drive `body:has(#v-list:checked)` rules that swap which section
+  displays — no JavaScript, keeping the "only JS is the theme toggle" rule
+  intact. Browsers without `:has()` just stay on the mosaic, which is the
+  default. The list renders as real HTML (not SVG) so the titles are
+  selectable and searchable.
 
 ## Previewing
 
