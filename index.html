@@ -28,6 +28,8 @@
         --indigo: #7b83ea; /* stop 3 */
         --violet: #a982e3; /* stop 4 */
         --sheen-edge: var(--paper); /* gradient endpoints on the name */
+        --gold: #d4a24c; /* five-star metal, echoed from /reading */
+        --book: #3f4d60; /* an ordinary book, echoed from /reading */
       }
 
       [data-theme='light'] {
@@ -40,6 +42,8 @@
         --indigo: #5560cf;
         --violet: #7e58c4;
         --sheen-edge: #1a2028;
+        --gold: #96701a; /* deeper on paper: a pale gold would vanish */
+        --book: #c0c9d3;
       }
 
       /* --- Cross-document view transitions ---
@@ -221,11 +225,13 @@
         --hue: var(--violet);
       }
 
-      /* --- Pages: mini-heatmap teaser linking to /workouts --- */
+      /* --- Pages: mini-heatmap teasers, each echoing its page's palette --- */
       .pages {
         margin-top: 2.75rem;
         padding-top: 2.25rem;
         border-top: 1px solid var(--hairline);
+        display: grid;
+        gap: 1.75rem;
       }
 
       .pages a {
@@ -234,6 +240,11 @@
         color: var(--paper);
         transition: color 160ms ease;
         --hue: var(--violet);
+      }
+
+      /* the reading page's accent is its gold, not the shared ramp */
+      .pages a:nth-child(2) {
+        --hue: var(--gold);
       }
 
       .pages .squares {
@@ -255,6 +266,14 @@
 
       .pages .sq.v {
         background: var(--violet);
+      }
+
+      .pages .sq.g {
+        background: var(--gold);
+      }
+
+      .pages .sq.b {
+        background: var(--book);
       }
 
       .pages .name {
@@ -483,6 +502,33 @@
             ></span
           >
           <span class="handle">every workout since 2018</span>
+        </a>
+
+        <a href="/reading/">
+          <span class="squares" aria-hidden="true">
+            <span class="sq g"></span>
+            <span class="sq"></span>
+            <span class="sq b"></span>
+            <span class="sq b"></span>
+            <span class="sq g"></span>
+            <span class="sq b"></span>
+            <span class="sq"></span>
+            <span class="sq b"></span>
+            <span class="sq g"></span>
+            <span class="sq b"></span>
+            <span class="sq b"></span>
+            <span class="sq"></span>
+            <span class="sq g"></span>
+            <span class="sq b"></span>
+            <span class="sq b"></span>
+            <span class="sq g"></span>
+          </span>
+          <span class="name"
+            >Reading by the numbers<span class="arrow" aria-hidden="true"
+              >&rarr;</span
+            ></span
+          >
+          <span class="handle">every book since 2008</span>
         </a>
       </section>
 
