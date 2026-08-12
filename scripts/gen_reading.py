@@ -80,8 +80,15 @@ def by_year(books):
     return years
 
 
-def build_svg(years, per_row, with_titles):
-    """One block per year, newest on top; books wrap at per_row."""
+def build_svg(years, per_row, wide):
+    """One block per year, newest on top; books wrap at per_row.
+
+    Only the wide layout carries <title> children, which the browser turns into
+    hover tooltips for free. The narrow layout deliberately omits them -- both
+    layouts emit the same books in the same order, so the mobile tap handler
+    looks a square up in the wide layout by index instead. Duplicating 1,383
+    titles would nearly double the gzipped page for no gain.
+    """
     order = sorted(years, reverse=True)
     width = per_row * PITCH - GAP
 
@@ -102,21 +109,21 @@ def build_svg(years, per_row, with_titles):
             cls = "b five" if is_five else "b"
             rect = (f'<rect class="{cls}" x="{cx}" y="{cy}" '
                     f'width="{CELL}" height="{CELL}" rx="2"')
-            if with_titles:
+            if wide:
                 star = "★ " if is_five else ""
                 who = f" — {esc(author)}" if author else ""
                 when = f" · {MONTHS[d.month - 1]} {d.year}"
                 parts.append(f'{rect}><title>{star}{esc(title)}{who}{when}'
-                             f'</title></rect>')
+                             f"</title></rect>")
             else:
                 parts.append(f"{rect}/>")
         y = grid_top + rows * PITCH + YEAR_GAP
 
     height = y - YEAR_GAP + 2
-    hint = (" Hover any square for the book, author, and month."
-            if with_titles else "")
+    hint = (" Hover any square for the book, author, and month." if wide
+            else " Tap any square for the book, author, and month.")
     return (
-        f'<svg class="mosaic {"wide" if with_titles else "narrow"}" '
+        f'<svg class="mosaic {"wide" if wide else "narrow"}" '
         f'viewBox="0 0 {width} {height}" role="img" '
         f'preserveAspectRatio="xMinYMin meet" '
         f'aria-label="One square per book, grouped by year from '
@@ -136,9 +143,10 @@ def build_list(years):
             continue
         items = "".join(
             f'<li><span class="bullet" aria-hidden="true"></span>'
-            f'<span class="txt"><span class="t">{esc(title)}</span> '
-            f'<span class="a">{esc(author)}</span></span>'
-            f'<span class="m">{MONTHS[d.month - 1]}</span></li>'
+            f'<span class="txt"><span class="t">{esc(title)}</span>'
+            # a couple of rows have no author; skip the span so no blank line
+            + (f'<span class="a">{esc(author)}</span>' if author else "")
+            + f'</span><span class="m">{MONTHS[d.month - 1]}</span></li>'
             for d, title, author, _ in fives
         )
         blocks.append(
@@ -252,10 +260,6 @@ HTML = """<!doctype html>
       main {{
         width: 100%;
         max-width: 44rem;
-        /* #top is the switch's "off" target; the oversized margin clamps the
-           jump to the top of the document, matching .list-view below, so
-           flipping the switch either way never moves the page */
-        scroll-margin-top: 100vh;
       }}
 
       /* --- Cross-document view transitions ---
@@ -458,6 +462,31 @@ HTML = """<!doctype html>
         font-size: 0.8rem;
         opacity: 0.8;
       }}
+      .hint-narrow {{ display: none; }}
+
+      /* --- touch readout: a bar pinned to the bottom on narrow screens --- */
+      .readout {{
+        display: none;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        background: var(--ink);
+        border-top: 1px solid var(--hairline);
+        color: var(--paper);
+        font-size: 0.85rem;
+        line-height: 1.45;
+        padding: 0.85rem 1.25rem;
+        padding-bottom: calc(0.85rem + env(safe-area-inset-bottom));
+      }}
+      /* the tapped square gets the same outline hover gives on desktop */
+      .mosaic .b.sel {{
+        stroke: var(--paper);
+        stroke-width: 1.5;
+      }}
+      /* the readout describes a square in the mosaic, so it goes away with it */
+      body:has(#five-stars:target) .readout {{ display: none; }}
 
       /* --- view switch: an iOS-style toggle --- */
       .switchwrap {{
@@ -563,7 +592,7 @@ HTML = """<!doctype html>
         list-style: none;
         margin-top: 0.85rem;
         display: grid;
-        gap: 0.55rem;
+        gap: 0.9rem;
       }}
       .ygroup li {{
         display: grid;
@@ -571,8 +600,11 @@ HTML = """<!doctype html>
         gap: 0.7rem;
         align-items: baseline;
         font-size: 0.95rem;
-        line-height: 1.45;
+        line-height: 1.4;
       }}
+      /* title on its own line, author beneath it */
+      .ygroup .t,
+      .ygroup .a {{ display: block; }}
       .ygroup .bullet {{
         width: 11px;
         height: 11px;
@@ -590,7 +622,8 @@ HTML = """<!doctype html>
       }}
       .ygroup .a {{
         color: var(--muted);
-        font-size: 0.9rem;
+        font-size: 0.85rem;
+        margin-top: 0.15rem;
       }}
       .ygroup .m {{
         color: var(--muted);
@@ -617,7 +650,11 @@ HTML = """<!doctype html>
         }}
         svg.wide {{ display: none; }}
         svg.narrow {{ display: block; }}
-        .hint {{ display: none; }} /* no hover on touch */
+        .hint-wide {{ display: none; }}
+        .hint-narrow {{ display: inline; }}
+        .readout.show {{ display: block; }}
+        /* keep the last row clear of the fixed readout bar */
+        body:has(.readout.show) {{ padding-bottom: 7rem; }}
       }}
 
       /* --- theme toggle (same as index) --- */
@@ -707,7 +744,7 @@ HTML = """<!doctype html>
       </defs>
     </svg>
 
-    <main id="top">
+    <main>
       <p class="eyebrow"><a href="/">&larr; Peter Miller</a></p>
       <h1>Reading by the numbers</h1>
       <p class="lede">
@@ -733,7 +770,7 @@ HTML = """<!doctype html>
             <span class="switchlbl">5 stars only</span>
             <a class="hit to-list" href="#five-stars"
               aria-label="Show only five-star books"></a>
-            <a class="hit to-mosaic" href="#top"
+            <a class="hit to-mosaic" href="#"
               aria-label="Show all books"></a>
           </div>
         </div>
@@ -752,8 +789,16 @@ HTML = """<!doctype html>
             <span>every other book</span>
           </div>
         </div>
-        <p class="hint">Hover a square for the book, author, and month.</p>
+        <p class="hint">
+          <span class="hint-wide">Hover a square for the book, author, and month.</span>
+          <span class="hint-narrow">Tap a square for the book, author, and month.</span>
+        </p>
       </section>
+
+      <!-- Touch readout. Hover never fires on a touch screen, so the narrow
+           mosaic gets a tap handler that prints the tapped square's <title>
+           here. Hidden until something is tapped, and only on narrow screens. -->
+      <p class="readout" id="readout" role="status" aria-live="polite"></p>
 
       <section class="list-view" id="five-stars" aria-label="Five-star books by year">
         {list_html}
@@ -785,6 +830,50 @@ HTML = """<!doctype html>
           label()
         }})
       }})()
+
+      /* Touch readout. A touch screen never fires hover, so the native <title>
+         tooltips the wide layout relies on are unreachable there. One delegated
+         listener on the narrow mosaic prints the tapped square's book into the
+         bar at the bottom.
+
+         The narrow layout carries no titles of its own -- both layouts emit the
+         same books in the same order, so the title is looked up in the (hidden
+         but present) wide layout at the same index. That keeps ~1,383 duplicate
+         strings out of the file. Desktop is untouched: it keeps the real
+         tooltips, and this listener is bound only to the narrow layout. */
+      ;(function () {{
+        var narrow = document.querySelector('svg.narrow')
+        var wide = document.querySelector('svg.wide')
+        var out = document.getElementById('readout')
+        if (!narrow || !wide || !out) return
+
+        var narrowRects = narrow.getElementsByTagName('rect')
+        var wideRects = wide.getElementsByTagName('rect')
+        var selected = null
+
+        function clear() {{
+          if (selected) selected.classList.remove('sel')
+          selected = null
+          out.classList.remove('show')
+          out.textContent = ''
+        }}
+
+        narrow.addEventListener('click', function (e) {{
+          var rect = e.target.closest ? e.target.closest('rect') : null
+          if (!rect) return clear() // tapping the gutter dismisses
+
+          var i = Array.prototype.indexOf.call(narrowRects, rect)
+          var twin = wideRects[i]
+          var title = twin && twin.querySelector('title')
+          if (!title) return clear()
+
+          if (selected) selected.classList.remove('sel')
+          rect.classList.add('sel')
+          selected = rect
+          out.textContent = title.textContent
+          out.classList.add('show')
+        }})
+      }})()
     </script>
   </body>
 </html>
@@ -799,8 +888,8 @@ def main():
     html = HTML.format(
         total=f"{len(books):,}",
         five=f"{five:,}",
-        svg_wide=build_svg(years, PER_ROW_WIDE, with_titles=True),
-        svg_narrow=build_svg(years, PER_ROW_NARROW, with_titles=False),
+        svg_wide=build_svg(years, PER_ROW_WIDE, wide=True),
+        svg_narrow=build_svg(years, PER_ROW_NARROW, wide=False),
         list_html=build_list(years),
     )
 

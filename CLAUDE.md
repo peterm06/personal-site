@@ -124,10 +124,18 @@ Three things here are load-bearing:
   separate by value as well as hue — hue alone fails for colourblind readers.
   Both ramps keep a high floor on purpose: the variation is decorative, so no
   square should look dim enough to imply it is *less* of a five-star.
-- **Hover tooltips are native `<title>` children, wide layout only.** Zero JS.
-  The narrow layout omits them because touch screens have no hover, which also
-  keeps ~150 KB out of the file. Hovering also strokes the square with
-  `--paper`, which inverts with the theme so it reads over both slate and gold.
+- **Hover tooltips are native `<title>` children, wide layout only.** Hovering
+  also strokes the square with `--paper`, which inverts with the theme so it
+  reads over both slate and gold.
+
+  The narrow layout carries **no** titles: a touch screen never fires hover, so
+  they would be dead weight there. Instead it gets the page's one piece of
+  non-theme JavaScript — a single delegated `click` listener that prints the
+  tapped square's book into a bar pinned to the bottom. It finds the text by
+  looking the square up **in the wide layout at the same index**, which works
+  because both layouts emit the same books in the same order. Duplicating 1,383
+  titles instead would take the gzipped page from 71 KB to 113 KB. If you
+  change the emit order of either layout, that index lookup breaks.
 - **The "5 stars only" switch is CSS-only and driven by the URL fragment**, so
   the list is linkable as `/reading/#five-stars`. `body:has(#five-stars:target)`
   swaps which section displays — no JavaScript, keeping the "only JS is the
