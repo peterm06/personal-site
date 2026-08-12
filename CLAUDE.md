@@ -14,9 +14,14 @@ Pages:
 
 - `index.html` — the landing page (name + profile links), served at `/`.
 - `workouts/index.html` — the fitness page, a day-level workout calendar.
-  **Generated** — see below; do not hand-edit. The directory-plus-index layout
-  is deliberate: it yields the clean `/workouts` URL on any static host without
-  extensionless-URL rewriting.
+  **Generated** — see below; do not hand-edit.
+- `reading/index.html` — the reading page, a book mosaic. **Generated** — see
+  below; do not hand-edit.
+
+The directory-plus-index layout on subpages is deliberate: it yields clean
+`/workouts` and `/reading` URLs on any static host without extensionless-URL
+rewriting. Link to them **with the trailing slash** (`/reading/`) — `/reading`
+301s to `/reading/`, and a redirect makes the browser skip the view transition.
 
 Pages navigate with **cross-document view transitions** (`@view-transition`,
 plus `view-transition-name: theme-toggle` so the fixed toggle does not
@@ -59,6 +64,10 @@ The workouts calendar adds its own vars (`--otf`, `--cp`, `--empty`) —
 one flat color per era, defined in both themes. Edit those in the generator, not
 the output.
 
+The reading mosaic adds `--book` (an ordinary book) and `--metal-1..5` plus
+`--metal-flat` (the five-star gold ramp). `index.html` carries flat `--gold` and
+`--book` too, so its teaser squares match the page they link to.
+
 ## The workouts page (generated)
 
 `workouts/index.html` is produced by [`scripts/gen_workouts.py`](scripts/gen_workouts.py)
@@ -85,6 +94,39 @@ python3 scripts/gen_workouts.py
 
 To change colors, geometry, or copy, edit the generator and re-run — never edit
 `workouts/index.html` directly, as it is overwritten.
+
+## The reading page (generated)
+
+`reading/index.html` is produced by [`scripts/gen_reading.py`](scripts/gen_reading.py)
+from `data/reading/storygraph_export.csv` (a StoryGraph account export; replace
+the file wholesale and re-run):
+
+```bash
+python3 scripts/gen_reading.py
+```
+
+One small square per book, in finish order, grouped into a block per year
+(newest on top), wrapping at a fixed number per row so no row spans the page.
+Color is categorical like the workouts page — five stars versus everything else,
+never a scale. Same two-SVG responsive trick (40 books per row wide, 24 narrow).
+
+Three things here are load-bearing:
+
+- **The metal is one gradient, not 227.** A gradient inside a 10px square is
+  invisible, so a single `<linearGradient>` in `userSpaceOnUse` coordinates
+  spans the whole grid and every five-star square samples it at its own
+  position. That positional variation is what reads as metal. It also drifts via
+  SMIL, echoing the `<h1>` sheen.
+- **The two metal ramps are not the same shape.** Dark mode gets a bright
+  specular highlight; on light paper that highlight would vanish, so light mode
+  keeps the ramp in a narrow mid-dark band and gets its metallic quality from
+  saturation instead. Light mode's `--book` is also lightened so five stars
+  separate by value as well as hue — hue alone fails for colourblind readers.
+  Both ramps keep a high floor on purpose: the variation is decorative, so no
+  square should look dim enough to imply it is *less* of a five-star.
+- **Hover tooltips are native `<title>` children, wide layout only.** Zero JS.
+  The narrow layout omits them because touch screens have no hover, which also
+  keeps ~150 KB out of the file.
 
 ## Previewing
 

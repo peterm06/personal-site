@@ -7,6 +7,20 @@ My personal site. Hand-authored static HTML — no framework, no build step.
 - `index.html` — landing page (`/`)
 - `workouts/index.html` — fitness calendar (`/workouts`). **Generated — do not
   hand-edit.**
+- `reading/index.html` — book mosaic (`/reading`). **Generated — do not
+  hand-edit.**
+
+## Regenerating the reading page
+
+`reading/index.html` is built from a StoryGraph export. To update, replace the
+export and re-run:
+
+```bash
+python3 scripts/gen_reading.py
+```
+
+Export from StoryGraph (Manage Account → Export), then save it over
+`data/reading/storygraph_export.csv`.
 
 ## Regenerating the workouts page
 
