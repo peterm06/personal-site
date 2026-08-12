@@ -252,6 +252,10 @@ HTML = """<!doctype html>
       main {{
         width: 100%;
         max-width: 44rem;
+        /* #top is the switch's "off" target; the oversized margin clamps the
+           jump to the top of the document, matching .list-view below, so
+           flipping the switch either way never moves the page */
+        scroll-margin-top: 100vh;
       }}
 
       /* --- Cross-document view transitions ---
@@ -455,60 +459,87 @@ HTML = """<!doctype html>
         opacity: 0.8;
       }}
 
-      /* --- view switch: a segmented control built from two radios --- */
-      .sr-only {{
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-      }}
-      .viewswitch {{
-        border: 1px solid var(--hairline);
-        border-radius: 999px;
-        padding: 3px;
-        display: inline-flex;
-        gap: 2px;
+      /* --- view switch: an iOS-style toggle --- */
+      .switchwrap {{
+        position: relative;
+        display: inline-grid;
+        justify-items: center;
+        gap: 0.4rem;
         margin-left: auto; /* pushes it to the far edge of the card */
         align-self: center;
       }}
-      .viewswitch input {{
-        position: absolute;
-        opacity: 0;
-        pointer-events: none;
-      }}
-      .viewswitch label {{
-        font-size: 0.8rem;
-        line-height: 1;
-        padding: 0.45rem 0.85rem;
+      .switchtrack {{
+        width: 46px;
+        height: 27px;
         border-radius: 999px;
-        color: var(--muted);
-        cursor: pointer;
-        white-space: nowrap;
-        transition:
-          background 160ms ease,
-          color 160ms ease;
-      }}
-      .viewswitch label:hover {{ color: var(--paper); }}
-      .viewswitch input:checked + label {{
         background: var(--hairline);
-        color: var(--paper);
+        position: relative;
+        transition: background 220ms ease;
       }}
-      .viewswitch input:focus-visible + label {{
+      .knob {{
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 21px;
+        height: 21px;
+        border-radius: 50%;
+        background: var(--muted);
+        transition:
+          transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
+          background 220ms ease;
+      }}
+      .switchlbl {{
+        font-size: 0.75rem;
+        line-height: 1;
+        color: var(--muted);
+        white-space: nowrap;
+        transition: color 200ms ease;
+      }}
+
+      /* the whole wrap is clickable, label included; only one anchor shows */
+      .hit {{
+        position: absolute;
+        inset: -4px;
+        border-radius: 10px;
+      }}
+      .to-mosaic {{ display: none; }}
+      .hit:focus-visible {{
         outline: 2px solid var(--indigo);
         outline-offset: 2px;
       }}
 
-      /* --- five-star list view --- */
-      .list-view {{ display: none; }}
-      body:has(#v-list:checked) .hero {{ display: none; }}
-      body:has(#v-list:checked) .list-view {{ display: block; }}
+      /* "on" state. The knob takes --ink, which is the page background and so
+         is always the opposite of the gold it sits on, in either theme. */
+      body:has(#five-stars:target) .switchtrack {{
+        background: var(--metal-flat);
+      }}
+      body:has(#five-stars:target) .knob {{
+        transform: translateX(19px);
+        background: var(--ink);
+      }}
+      body:has(#five-stars:target) .switchlbl {{ color: var(--paper); }}
+      body:has(#five-stars:target) .to-list {{ display: none; }}
+      body:has(#five-stars:target) .to-mosaic {{ display: block; }}
 
-      .list-view {{ margin-top: 2.25rem; }}
+      @media (prefers-reduced-motion: reduce) {{
+        .knob,
+        .switchtrack,
+        .switchlbl {{ transition: none; }}
+      }}
+
+      /* --- five-star list view --- */
+      .list-view {{
+        display: none;
+        margin-top: 2.25rem;
+        /* Jumping to #five-stars would scroll the list to the top of the
+           viewport, taking the switch with it and leaving no way back. An
+           oversized scroll margin puts the target above the document start, so
+           the browser clamps to the top and nothing moves -- while the URL stays
+           shareable. */
+        scroll-margin-top: 100vh;
+      }}
+      body:has(#five-stars:target) .hero {{ display: none; }}
+      body:has(#five-stars:target) .list-view {{ display: block; }}
       .ygroup + .ygroup {{ margin-top: 2rem; }}
       .ygroup h2 {{
         font-family: 'Fraunces', serif;
@@ -580,10 +611,9 @@ HTML = """<!doctype html>
            without this they wrap lopsided */
         .summary-primary .stat:first-child {{ flex-basis: 100%; }}
         /* the switch drops to its own centred row rather than hugging an edge */
-        .viewswitch {{
-          flex-basis: 100%;
+        .switchwrap {{
           margin-left: 0;
-          justify-content: center;
+          justify-self: center;
         }}
         svg.wide {{ display: none; }}
         svg.narrow {{ display: block; }}
@@ -677,7 +707,7 @@ HTML = """<!doctype html>
       </defs>
     </svg>
 
-    <main>
+    <main id="top">
       <p class="eyebrow"><a href="/">&larr; Peter Miller</a></p>
       <h1>Reading by the numbers</h1>
       <p class="lede">
@@ -689,16 +719,23 @@ HTML = """<!doctype html>
           <div class="stat"><div class="num">{total}</div><div class="lbl">books since 2008</div></div>
           <div class="stat"><div class="num"><span class="dot"></span>{five}</div><div class="lbl">five stars</div></div>
 
-          <!-- CSS-only view switch: two radios drive `body:has(:checked)` rules
-               below, so swapping views costs no JavaScript. Without :has()
-               support the mosaic simply stays put, which is the default. -->
-          <fieldset class="viewswitch">
-            <legend class="sr-only">Choose a view</legend>
-            <input type="radio" name="view" id="v-mosaic" checked />
-            <label for="v-mosaic">Mosaic</label>
-            <input type="radio" name="view" id="v-list" />
-            <label for="v-list">Five-star list</label>
-          </fieldset>
+          <!-- CSS-only view switch, driven by the URL fragment so the five-star
+               view is linkable as /reading/#five-stars. The track and knob are
+               a single element that animates via `body:has(#five-stars:target)`;
+               the two anchors are invisible hit areas layered over it, one of
+               which is hidden at any time. (A checkbox would animate the same
+               way but could not be linked to, and would disagree with the hash
+               if someone arrived on one.) -->
+          <div class="switchwrap">
+            <span class="switchtrack" aria-hidden="true"
+              ><span class="knob"></span
+            ></span>
+            <span class="switchlbl">5 stars only</span>
+            <a class="hit to-list" href="#five-stars"
+              aria-label="Show only five-star books"></a>
+            <a class="hit to-mosaic" href="#top"
+              aria-label="Show all books"></a>
+          </div>
         </div>
       </div>
 
@@ -718,7 +755,7 @@ HTML = """<!doctype html>
         <p class="hint">Hover a square for the book, author, and month.</p>
       </section>
 
-      <section class="list-view" aria-label="Five-star books by year">
+      <section class="list-view" id="five-stars" aria-label="Five-star books by year">
         {list_html}
       </section>
     </main>

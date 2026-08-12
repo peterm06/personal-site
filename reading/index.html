@@ -101,6 +101,10 @@
       main {
         width: 100%;
         max-width: 44rem;
+        /* #top is the switch's "off" target; the oversized margin clamps the
+           jump to the top of the document, matching .list-view below, so
+           flipping the switch either way never moves the page */
+        scroll-margin-top: 100vh;
       }
 
       /* --- Cross-document view transitions ---
@@ -304,60 +308,87 @@
         opacity: 0.8;
       }
 
-      /* --- view switch: a segmented control built from two radios --- */
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-      }
-      .viewswitch {
-        border: 1px solid var(--hairline);
-        border-radius: 999px;
-        padding: 3px;
-        display: inline-flex;
-        gap: 2px;
+      /* --- view switch: an iOS-style toggle --- */
+      .switchwrap {
+        position: relative;
+        display: inline-grid;
+        justify-items: center;
+        gap: 0.4rem;
         margin-left: auto; /* pushes it to the far edge of the card */
         align-self: center;
       }
-      .viewswitch input {
-        position: absolute;
-        opacity: 0;
-        pointer-events: none;
-      }
-      .viewswitch label {
-        font-size: 0.8rem;
-        line-height: 1;
-        padding: 0.45rem 0.85rem;
+      .switchtrack {
+        width: 46px;
+        height: 27px;
         border-radius: 999px;
-        color: var(--muted);
-        cursor: pointer;
-        white-space: nowrap;
-        transition:
-          background 160ms ease,
-          color 160ms ease;
-      }
-      .viewswitch label:hover { color: var(--paper); }
-      .viewswitch input:checked + label {
         background: var(--hairline);
-        color: var(--paper);
+        position: relative;
+        transition: background 220ms ease;
       }
-      .viewswitch input:focus-visible + label {
+      .knob {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 21px;
+        height: 21px;
+        border-radius: 50%;
+        background: var(--muted);
+        transition:
+          transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
+          background 220ms ease;
+      }
+      .switchlbl {
+        font-size: 0.75rem;
+        line-height: 1;
+        color: var(--muted);
+        white-space: nowrap;
+        transition: color 200ms ease;
+      }
+
+      /* the whole wrap is clickable, label included; only one anchor shows */
+      .hit {
+        position: absolute;
+        inset: -4px;
+        border-radius: 10px;
+      }
+      .to-mosaic { display: none; }
+      .hit:focus-visible {
         outline: 2px solid var(--indigo);
         outline-offset: 2px;
       }
 
-      /* --- five-star list view --- */
-      .list-view { display: none; }
-      body:has(#v-list:checked) .hero { display: none; }
-      body:has(#v-list:checked) .list-view { display: block; }
+      /* "on" state. The knob takes --ink, which is the page background and so
+         is always the opposite of the gold it sits on, in either theme. */
+      body:has(#five-stars:target) .switchtrack {
+        background: var(--metal-flat);
+      }
+      body:has(#five-stars:target) .knob {
+        transform: translateX(19px);
+        background: var(--ink);
+      }
+      body:has(#five-stars:target) .switchlbl { color: var(--paper); }
+      body:has(#five-stars:target) .to-list { display: none; }
+      body:has(#five-stars:target) .to-mosaic { display: block; }
 
-      .list-view { margin-top: 2.25rem; }
+      @media (prefers-reduced-motion: reduce) {
+        .knob,
+        .switchtrack,
+        .switchlbl { transition: none; }
+      }
+
+      /* --- five-star list view --- */
+      .list-view {
+        display: none;
+        margin-top: 2.25rem;
+        /* Jumping to #five-stars would scroll the list to the top of the
+           viewport, taking the switch with it and leaving no way back. An
+           oversized scroll margin puts the target above the document start, so
+           the browser clamps to the top and nothing moves -- while the URL stays
+           shareable. */
+        scroll-margin-top: 100vh;
+      }
+      body:has(#five-stars:target) .hero { display: none; }
+      body:has(#five-stars:target) .list-view { display: block; }
       .ygroup + .ygroup { margin-top: 2rem; }
       .ygroup h2 {
         font-family: 'Fraunces', serif;
@@ -429,10 +460,9 @@
            without this they wrap lopsided */
         .summary-primary .stat:first-child { flex-basis: 100%; }
         /* the switch drops to its own centred row rather than hugging an edge */
-        .viewswitch {
-          flex-basis: 100%;
+        .switchwrap {
           margin-left: 0;
-          justify-content: center;
+          justify-self: center;
         }
         svg.wide { display: none; }
         svg.narrow { display: block; }
@@ -526,7 +556,7 @@
       </defs>
     </svg>
 
-    <main>
+    <main id="top">
       <p class="eyebrow"><a href="/">&larr; Peter Miller</a></p>
       <h1>Reading by the numbers</h1>
       <p class="lede">
@@ -538,16 +568,23 @@
           <div class="stat"><div class="num">1,383</div><div class="lbl">books since 2008</div></div>
           <div class="stat"><div class="num"><span class="dot"></span>227</div><div class="lbl">five stars</div></div>
 
-          <!-- CSS-only view switch: two radios drive `body:has(:checked)` rules
-               below, so swapping views costs no JavaScript. Without :has()
-               support the mosaic simply stays put, which is the default. -->
-          <fieldset class="viewswitch">
-            <legend class="sr-only">Choose a view</legend>
-            <input type="radio" name="view" id="v-mosaic" checked />
-            <label for="v-mosaic">Mosaic</label>
-            <input type="radio" name="view" id="v-list" />
-            <label for="v-list">Five-star list</label>
-          </fieldset>
+          <!-- CSS-only view switch, driven by the URL fragment so the five-star
+               view is linkable as /reading/#five-stars. The track and knob are
+               a single element that animates via `body:has(#five-stars:target)`;
+               the two anchors are invisible hit areas layered over it, one of
+               which is hidden at any time. (A checkbox would animate the same
+               way but could not be linked to, and would disagree with the hash
+               if someone arrived on one.) -->
+          <div class="switchwrap">
+            <span class="switchtrack" aria-hidden="true"
+              ><span class="knob"></span
+            ></span>
+            <span class="switchlbl">5 stars only</span>
+            <a class="hit to-list" href="#five-stars"
+              aria-label="Show only five-star books"></a>
+            <a class="hit to-mosaic" href="#top"
+              aria-label="Show all books"></a>
+          </div>
         </div>
       </div>
 
@@ -567,7 +604,7 @@
         <p class="hint">Hover a square for the book, author, and month.</p>
       </section>
 
-      <section class="list-view" aria-label="Five-star books by year">
+      <section class="list-view" id="five-stars" aria-label="Five-star books by year">
         <div class="ygroup"><h2>2026<span class="yn">7 of 33 books</span></h2><ul><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">A Grief Observed</span> <span class="a">C.S. Lewis</span></span><span class="m">Jan</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The American Revolution and the Fate of the World</span> <span class="a">Richard Bell</span></span><span class="m">Feb</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Native Nations: A Millennium in North America</span> <span class="a">Kathleen DuVal</span></span><span class="m">Apr</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The People Themselves: Popular Constitutionalism and Judicial Review</span> <span class="a">Larry D. Kramer</span></span><span class="m">May</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Democratic Justice: Felix Frankfurter, the Supreme Court, and the Making of the Liberal Establishment</span> <span class="a">Brad Snyder</span></span><span class="m">Jul</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Baby Ninth Amendments: How Americans Embraced Unenumerated Rights and Why It Matters</span> <span class="a">Anthony B Sanders</span></span><span class="m">Jul</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The Writer and the Witch</span> <span class="a">Robin Sloan</span></span><span class="m">Aug</span></li></ul></div>
         <div class="ygroup"><h2>2025<span class="yn">14 of 54 books</span></h2><ul><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The Original Meaning of the Fourteenth Amendment: Its Letter and Spirit</span> <span class="a">James Oakes, Evan D. Bernick, Randy E. Barnett</span></span><span class="m">Jan</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Punish Treason, Reward Loyalty: The Forgotten Goals of Constitutional Reform after the Civil War</span> <span class="a">Mark A. Graber</span></span><span class="m">Jan</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">IBM and the Holocaust</span> <span class="a">Edwin Black</span></span><span class="m">Feb</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The Idea of a Party System, Volume 2: The Rise of Legitimate Opposition in the United States, 1780-1840</span> <span class="a">Richard Hofstadter</span></span><span class="m">Mar</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Congress's Constitution: Legislative Authority and the Separation of Powers</span> <span class="a">Josh Chafetz</span></span><span class="m">Apr</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The Paranoid Style in American Politics: An Essay: from The Paranoid Style in American Politics</span> <span class="a">Richard Hofstadter</span></span><span class="m">Apr</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Wind and Truth</span> <span class="a">Brandon Sanderson</span></span><span class="m">Apr</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Marketcrafters: The 100-Year Struggle to Shape the American Economy</span> <span class="a">Chris Hughes</span></span><span class="m">May</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The Fate of the Day: The War for America, Fort Ticonderoga to Charleston, 1777-1780</span> <span class="a">Rick Atkinson</span></span><span class="m">Jul</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">I Dread the Thought of the Place: The Battle of Antietam and the End of the Maryland Campaign</span> <span class="a">D. Scott Hartwig</span></span><span class="m">Aug</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The Sorceress and the Vigilant</span> <span class="a">T. R. Sohn</span></span><span class="m">Sep</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">To Antietam Creek: The Maryland Campaign of September 1862</span> <span class="a">D. Scott Hartwig</span></span><span class="m">Oct</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The Oldest Constitutional Question: Enumeration and Federal Power</span> <span class="a">Richard Primus</span></span><span class="m">Nov</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The Will of the Many</span> <span class="a">James Islington</span></span><span class="m">Dec</span></li></ul></div>
         <div class="ygroup"><h2>2024<span class="yn">19 of 76 books</span></h2><ul><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Armies of Deliverance: A New History of the Civil War</span> <span class="a">Elizabeth R. Varon</span></span><span class="m">Jan</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Hypermedia Systems</span> <span class="a">Carson Gross</span></span><span class="m">Jan</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Worse Than Nothing: The Dangerous Fallacy of Originalism</span> <span class="a">Erwin Chemerinsky</span></span><span class="m">Jan</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Remarkably Bright Creatures</span> <span class="a">Shelby Van Pelt</span></span><span class="m">Jan</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Democracy and Distrust: A Theory of Judicial Review</span> <span class="a">John Hart Ely</span></span><span class="m">Feb</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">&quot;what Shall We Do with the Negro?&quot;: Lincoln, White Racism, and Civil War America</span> <span class="a">Paul D. Escott</span></span><span class="m">Feb</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Freedom's Dominion: A Saga of White Resistance to Federal Power</span> <span class="a">Jefferson Cowie</span></span><span class="m">Mar</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Words of Radiance</span> <span class="a">Brandon Sanderson</span></span><span class="m">Apr</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Lone Women</span> <span class="a">Victor LaValle</span></span><span class="m">May</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">America's Unwritten Constitution: The Precedents and Principles We Live By</span> <span class="a">Akhil Reed Amar</span></span><span class="m">Jun</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Edgedancer</span> <span class="a">Brandon Sanderson</span></span><span class="m">Jul</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Skyward</span> <span class="a">Brandon Sanderson</span></span><span class="m">Jul</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Moonbound</span> <span class="a">Robin Sloan</span></span><span class="m">Aug</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Gilead</span> <span class="a">Marilynne Robinson</span></span><span class="m">Aug</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Bury My Heart at Wounded Knee: An Indian History of the American West</span> <span class="a">Dee Brown</span></span><span class="m">Sep</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">War Against the Weak: Eugenics and America's Campaign to Create a Master Race</span> <span class="a">Edwin Black</span></span><span class="m">Oct</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Washington's Crossing</span> <span class="a">David Hackett Fischer</span></span><span class="m">Nov</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The Court at War: FDR, His Justices, and the World They Made</span> <span class="a">Cliff Sloan</span></span><span class="m">Dec</span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">The Constitution of the War on Drugs</span> <span class="a">David Pozen, Charles Keller Beekman Professor of Law Davi…</span></span><span class="m">Dec</span></li></ul></div>

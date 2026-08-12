@@ -128,12 +128,18 @@ Three things here are load-bearing:
   The narrow layout omits them because touch screens have no hover, which also
   keeps ~150 KB out of the file. Hovering also strokes the square with
   `--paper`, which inverts with the theme so it reads over both slate and gold.
-- **The Mosaic / Five-star-list switch is CSS-only.** Two hidden radios in the
-  summary card drive `body:has(#v-list:checked)` rules that swap which section
-  displays — no JavaScript, keeping the "only JS is the theme toggle" rule
-  intact. Browsers without `:has()` just stay on the mosaic, which is the
-  default. The list renders as real HTML (not SVG) so the titles are
-  selectable and searchable.
+- **The "5 stars only" switch is CSS-only and driven by the URL fragment**, so
+  the list is linkable as `/reading/#five-stars`. `body:has(#five-stars:target)`
+  swaps which section displays — no JavaScript, keeping the "only JS is the
+  theme toggle" rule intact; browsers without `:has()` just stay on the mosaic,
+  which is the default. The iOS-style track and knob are a *single* element that
+  animates, with two absolutely-positioned anchors (`#five-stars` / `#top`)
+  layered over it as hit areas, one hidden at a time — a checkbox would animate
+  the same way but could not be linked to, and would contradict the hash if
+  someone arrived on one. **Both targets carry `scroll-margin-top: 100vh`** on
+  purpose: it puts the anchor above the document start so the browser clamps to
+  the top, meaning the switch never scrolls itself off screen. The list renders
+  as real HTML (not SVG) so titles are selectable and findable with ⌘F.
 
 ## Previewing
 
