@@ -124,18 +124,22 @@ Three things here are load-bearing:
   separate by value as well as hue — hue alone fails for colourblind readers.
   Both ramps keep a high floor on purpose: the variation is decorative, so no
   square should look dim enough to imply it is *less* of a five-star.
-- **Hover tooltips are native `<title>` children, wide layout only.** Hovering
-  also strokes the square with `--paper`, which inverts with the theme so it
-  reads over both slate and gold.
+- **Book details are click-to-reveal, at every width.** Clicking or tapping a
+  square prints its book into a bar pinned to the bottom of the viewport — the
+  same interaction on desktop and touch. This is the page's one piece of
+  non-theme JavaScript: a delegated `click` listener on each layout.
 
-  The narrow layout carries **no** titles: a touch screen never fires hover, so
-  they would be dead weight there. Instead it gets the page's one piece of
-  non-theme JavaScript — a single delegated `click` listener that prints the
-  tapped square's book into a bar pinned to the bottom. It finds the text by
-  looking the square up **in the wide layout at the same index**, which works
-  because both layouts emit the same books in the same order. Duplicating 1,383
-  titles instead would take the gzipped page from 71 KB to 113 KB. If you
-  change the emit order of either layout, that index lookup breaks.
+  The labels are `data-b` attributes, **not** `<title>` children, on purpose: a
+  `<title>` forces a native hover tooltip, which would compete with the bar.
+  (Hover tooltips were the original desktop treatment and were dropped for
+  exactly that reason.) Hovering still strokes the square with `--paper`, which
+  inverts with the theme so it reads over both slate and gold.
+
+  Only the **wide** layout carries `data-b`. Both layouts emit the same books in
+  the same order, so a narrow square is resolved by looking up **the wide
+  layout at the same index**. Duplicating 1,383 labels instead would take the
+  gzipped page from ~70 KB to ~113 KB. If you change the emit order of either
+  layout, that index lookup silently returns the wrong book.
 - **The "5 stars only" switch is CSS-only and driven by the URL fragment**, so
   the list is linkable as `/reading/#five-stars`. `body:has(#five-stars:target)`
   swaps which section displays — no JavaScript, keeping the "only JS is the
