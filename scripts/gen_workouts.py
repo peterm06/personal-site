@@ -422,6 +422,13 @@ HTML = """<!doctype html>
       .heatmap-wrap {{
         max-width: 54rem;
       }}
+
+      footer {{
+        margin-top: 3rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        opacity: 0.8;
+      }}
       svg.heatmap {{
         display: block;
         width: 100%;
@@ -554,6 +561,10 @@ HTML = """<!doctype html>
       {svg_narrow}
         </div>
       </section>
+
+      <footer>
+        Last updated <time datetime="{updated_iso}">{updated}</time>.
+      </footer>
     </main>
 
     <script>
@@ -591,12 +602,17 @@ def main():
     otf_days, otf_dates, otf_count, otf_splat = read_otf()
     cp_days, cp_dates, fams = read_cp()
 
+    # stamped at generation time; %-d is not portable, so build the day by hand
+    today = dt.date.today()
+
     html = HTML.format(
         svg_wide=build_svg(otf_days, cp_days),
         svg_narrow=build_svg_mobile(otf_days, cp_days),
         total=f"{otf_count + len(cp_dates):,}",
         otf_count=f"{otf_count:,}",
         cp_count=f"{len(cp_dates):,}",
+        updated=f"{today.strftime('%B')} {today.day}, {today.year}",
+        updated_iso=today.isoformat(),
     )
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

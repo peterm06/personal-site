@@ -425,44 +425,12 @@ HTML = """<!doctype html>
         .mosaic .five {{ fill: var(--metal-flat); }}
       }}
 
-      /* --- legend --- */
-      .legend {{
-        margin-top: 1.5rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem 1.75rem;
-        align-items: center;
-        color: var(--muted);
-        font-size: 0.85rem;
-      }}
-      .legend-group {{
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }}
-      .sw {{
-        width: 14px;
-        height: 14px;
-        border-radius: 3px;
-        display: inline-block;
-      }}
-      .sw.book {{ background: var(--book); }}
-      .sw.metal {{
-        background: linear-gradient(
-          135deg,
-          var(--metal-2),
-          var(--metal-3),
-          var(--metal-4),
-          var(--metal-1)
-        );
-      }}
-      .hint {{
-        margin-top: 0.9rem;
+      footer {{
+        margin-top: 3rem;
         color: var(--muted);
         font-size: 0.8rem;
         opacity: 0.8;
       }}
-      .hint-narrow {{ display: none; }}
 
       /* --- touch readout: a bar pinned to the bottom on narrow screens --- */
       .readout {{
@@ -650,8 +618,6 @@ HTML = """<!doctype html>
         }}
         svg.wide {{ display: none; }}
         svg.narrow {{ display: block; }}
-        .hint-wide {{ display: none; }}
-        .hint-narrow {{ display: inline; }}
         .readout.show {{ display: block; }}
         /* keep the last row clear of the fixed readout bar */
         body:has(.readout.show) {{ padding-bottom: 7rem; }}
@@ -779,20 +745,6 @@ HTML = """<!doctype html>
       <section class="hero" aria-label="Book mosaic">
         {svg_wide}
         {svg_narrow}
-        <div class="legend">
-          <div class="legend-group">
-            <span class="sw metal"></span>
-            <span>five stars</span>
-          </div>
-          <div class="legend-group">
-            <span class="sw book"></span>
-            <span>every other book</span>
-          </div>
-        </div>
-        <p class="hint">
-          <span class="hint-wide">Hover a square for the book, author, and month.</span>
-          <span class="hint-narrow">Tap a square for the book, author, and month.</span>
-        </p>
       </section>
 
       <!-- Touch readout. Hover never fires on a touch screen, so the narrow
@@ -803,6 +755,10 @@ HTML = """<!doctype html>
       <section class="list-view" id="five-stars" aria-label="Five-star books by year">
         {list_html}
       </section>
+
+      <footer>
+        Last updated <time datetime="{updated_iso}">{updated}</time>.
+      </footer>
     </main>
 
     <script>
@@ -885,12 +841,17 @@ def main():
     years = by_year(books)
     five = sum(1 for b in books if b[3])
 
+    # stamped at generation time; %-d is not portable, so build the day by hand
+    today = dt.date.today()
+
     html = HTML.format(
         total=f"{len(books):,}",
         five=f"{five:,}",
         svg_wide=build_svg(years, PER_ROW_WIDE, wide=True),
         svg_narrow=build_svg(years, PER_ROW_NARROW, wide=False),
         list_html=build_list(years),
+        updated=f"{today.strftime('%B')} {today.day}, {today.year}",
+        updated_iso=today.isoformat(),
     )
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
