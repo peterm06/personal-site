@@ -88,11 +88,14 @@ def by_year(books):
 def build_svg(years, per_row, wide):
     """One block per year, newest on top; books wrap at per_row.
 
-    Only the wide layout carries <title> children, which the browser turns into
-    hover tooltips for free. The narrow layout deliberately omits them -- both
-    layouts emit the same books in the same order, so the mobile tap handler
-    looks a square up in the wide layout by index instead. Duplicating 1,383
-    titles would nearly double the gzipped page for no gain.
+    Only the wide layout carries data-b labels. The narrow layout deliberately
+    omits them -- both layouts emit the same books in the same order, so the
+    click handler looks a square up in the wide layout by index instead.
+    Duplicating 1,383 labels would nearly double the gzipped page for no gain.
+
+    These are data-b attributes rather than <title> children on purpose: a
+    <title> forces a native hover tooltip, which would compete with the readout
+    bar the click handler drives.
     """
     order = sorted(years, reverse=True)
     width = per_row * PITCH - GAP
@@ -116,17 +119,16 @@ def build_svg(years, per_row, wide):
                     f'width="{CELL}" height="{CELL}" rx="2"')
             if wide:
                 star = "★ " if is_five else ""
-                who = f" — {esc(author)}" if author else ""
+                who = f" — {author}" if author else ""
                 when = f" · {MONTHS[d.month - 1]} {d.year}"
-                parts.append(f'{rect}><title>{star}{esc(title)}{who}{when}'
-                             f"</title></rect>")
+                label = esc(f"{star}{title}{who}{when}")
+                parts.append(f'{rect} data-b="{label}"/>')
             else:
                 parts.append(f"{rect}/>")
         y = grid_top + rows * PITCH + YEAR_GAP
 
     height = y - YEAR_GAP + 2
-    hint = (" Hover any square for the book, author, and month." if wide
-            else " Tap any square for the book, author, and month.")
+    hint = " Select any square for the book, author, and month."
     return (
         f'<svg class="mosaic {"wide" if wide else "narrow"}" '
         f'viewBox="0 0 {width} {height}" role="img" '
@@ -410,16 +412,18 @@ HTML = """<!doctype html>
 
       .mosaic .b {{
         fill: var(--book);
+        cursor: pointer;
       }}
       .mosaic .five {{
         fill: url(#metal);
       }}
 
-      /* Hover picks a square out with a crisp outline. --paper inverts with the
-         theme, so it reads against both the slate and the gold. The stroke is
-         centred on the edge, so half of it sits in the 3px gutter and never
-         touches a neighbour. */
-      .mosaic .b:hover {{
+      /* Hover previews the target, .sel marks the square whose book is showing.
+         --paper inverts with the theme, so the outline reads against both the
+         slate and the gold. The stroke is centred on the edge, so half of it
+         sits in the 3px gutter and never touches a neighbour. */
+      .mosaic .b:hover,
+      .mosaic .b.sel {{
         stroke: var(--paper);
         stroke-width: 1.5;
       }}
@@ -437,7 +441,16 @@ HTML = """<!doctype html>
         opacity: 0.8;
       }}
 
-      /* --- touch readout: a bar pinned to the bottom on narrow screens --- */
+      .hint {{
+        margin-top: 1.1rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        opacity: 0.8;
+      }}
+
+      /* --- readout: a bar pinned to the bottom, at every width. Selecting a
+             square is the one way to read a book off the mosaic, so the same
+             treatment runs on desktop and touch alike. --- */
       .readout {{
         display: none;
         position: fixed;
@@ -453,11 +466,18 @@ HTML = """<!doctype html>
         padding: 0.85rem 1.25rem;
         padding-bottom: calc(0.85rem + env(safe-area-inset-bottom));
       }}
-      /* the tapped square gets the same outline hover gives on desktop */
-      .mosaic .b.sel {{
-        stroke: var(--paper);
-        stroke-width: 1.5;
+      .readout.show {{
+        display: flex;
+        justify-content: center;
       }}
+      /* keep the text lined up with the page's own column instead of the
+         far-left edge of a wide bar */
+      .readout span {{
+        width: 100%;
+        max-width: 44rem;
+      }}
+      /* nothing is hidden behind the fixed bar */
+      body:has(.readout.show) {{ padding-bottom: 7rem; }}
       /* the readout describes a square in the mosaic, so it goes away with it */
       body:has(#five-stars:target) .readout {{ display: none; }}
 
@@ -623,9 +643,6 @@ HTML = """<!doctype html>
         }}
         svg.wide {{ display: none; }}
         svg.narrow {{ display: block; }}
-        .readout.show {{ display: block; }}
-        /* keep the last row clear of the fixed readout bar */
-        body:has(.readout.show) {{ padding-bottom: 7rem; }}
       }}
 
       /* --- theme toggle (same as index) --- */
@@ -750,12 +767,14 @@ HTML = """<!doctype html>
       <section class="hero" aria-label="Book mosaic">
         {svg_wide}
         {svg_narrow}
+        <p class="hint">Click or tap a square for the book, author, and month.</p>
       </section>
 
-      <!-- Touch readout. Hover never fires on a touch screen, so the narrow
-           mosaic gets a tap handler that prints the tapped square's <title>
-           here. Hidden until something is tapped, and only on narrow screens. -->
-      <p class="readout" id="readout" role="status" aria-live="polite"></p>
+      <!-- Readout bar. Selecting a square prints its book here, on desktop and
+           touch alike; hidden until something is selected. -->
+      <p class="readout" id="readout" role="status" aria-live="polite">
+        <span id="readout-text"></span>
+      </p>
 
       <section class="list-view" id="five-stars" aria-label="Five-star books by year">
         {list_html}
@@ -792,23 +811,21 @@ HTML = """<!doctype html>
         }})
       }})()
 
-      /* Touch readout. A touch screen never fires hover, so the native <title>
-         tooltips the wide layout relies on are unreachable there. One delegated
-         listener on the narrow mosaic prints the tapped square's book into the
-         bar at the bottom.
+      /* Readout. Selecting a square prints its book into the bar at the bottom
+         -- the same interaction on desktop and touch, rather than a native
+         hover tooltip the phone could never reach.
 
-         The narrow layout carries no titles of its own -- both layouts emit the
-         same books in the same order, so the title is looked up in the (hidden
-         but present) wide layout at the same index. That keeps ~1,383 duplicate
-         strings out of the file. Desktop is untouched: it keeps the real
-         tooltips, and this listener is bound only to the narrow layout. */
+         Only the wide layout carries data-b labels. Both layouts emit the same
+         books in the same order, so a narrow square is looked up in the (hidden
+         but present) wide layout at the same index, which keeps ~1,383
+         duplicate strings out of the file. */
       ;(function () {{
-        var narrow = document.querySelector('svg.narrow')
         var wide = document.querySelector('svg.wide')
+        var narrow = document.querySelector('svg.narrow')
         var out = document.getElementById('readout')
-        if (!narrow || !wide || !out) return
+        var text = document.getElementById('readout-text')
+        if (!wide || !out || !text) return
 
-        var narrowRects = narrow.getElementsByTagName('rect')
         var wideRects = wide.getElementsByTagName('rect')
         var selected = null
 
@@ -816,23 +833,39 @@ HTML = """<!doctype html>
           if (selected) selected.classList.remove('sel')
           selected = null
           out.classList.remove('show')
-          out.textContent = ''
+          text.textContent = ''
         }}
 
-        narrow.addEventListener('click', function (e) {{
-          var rect = e.target.closest ? e.target.closest('rect') : null
-          if (!rect) return clear() // tapping the gutter dismisses
-
-          var i = Array.prototype.indexOf.call(narrowRects, rect)
+        function bookFor(rect, svg) {{
+          var own = rect.getAttribute('data-b')
+          if (own) return own
+          var i = Array.prototype.indexOf.call(svg.getElementsByTagName('rect'), rect)
           var twin = wideRects[i]
-          var title = twin && twin.querySelector('title')
-          if (!title) return clear()
+          return twin ? twin.getAttribute('data-b') : null
+        }}
 
-          if (selected) selected.classList.remove('sel')
-          rect.classList.add('sel')
-          selected = rect
-          out.textContent = title.textContent
-          out.classList.add('show')
+        function wire(svg) {{
+          if (!svg) return
+          svg.addEventListener('click', function (e) {{
+            var rect = e.target.closest ? e.target.closest('rect') : null
+            if (!rect) return clear() // clicking the gutter dismisses
+
+            var book = bookFor(rect, svg)
+            if (!book) return clear()
+
+            if (selected) selected.classList.remove('sel')
+            rect.classList.add('sel')
+            selected = rect
+            text.textContent = book
+            out.classList.add('show')
+          }})
+        }}
+
+        wire(wide)
+        wire(narrow)
+
+        document.addEventListener('keydown', function (e) {{
+          if (e.key === 'Escape') clear()
         }})
       }})()
     </script>
