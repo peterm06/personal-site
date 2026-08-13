@@ -218,6 +218,11 @@ def fmt_range(dates):
     return lo.strftime("%b %Y"), hi.strftime("%b %Y")
 
 
+def fmt_long(d):
+    """'August 11, 2026' -- strftime('%-d') is not portable, so build it here."""
+    return f"{d.strftime('%B')} {d.day}, {d.year}"
+
+
 HTML = """<!doctype html>
 <html lang="en">
   <head>
@@ -563,7 +568,7 @@ HTML = """<!doctype html>
       </section>
 
       <footer>
-        Last updated <time datetime="{updated_iso}">{updated}</time>.
+        Last class: <time datetime="{last_date_iso}">{last_date}</time>
       </footer>
     </main>
 
@@ -602,8 +607,10 @@ def main():
     otf_days, otf_dates, otf_count, otf_splat = read_otf()
     cp_days, cp_dates, fams = read_cp()
 
-    # stamped at generation time; %-d is not portable, so build the day by hand
-    today = dt.date.today()
+    # The footer date comes from the data, not the clock: it is the most recent
+    # class of either era, so regenerating unchanged data yields an identical
+    # file. Taken from the union rather than assuming CorePower is always last.
+    last = max(otf_days | cp_days)
 
     html = HTML.format(
         svg_wide=build_svg(otf_days, cp_days),
@@ -611,8 +618,8 @@ def main():
         total=f"{otf_count + len(cp_dates):,}",
         otf_count=f"{otf_count:,}",
         cp_count=f"{len(cp_dates):,}",
-        updated=f"{today.strftime('%B')} {today.day}, {today.year}",
-        updated_iso=today.isoformat(),
+        last_date=fmt_long(last),
+        last_date_iso=last.isoformat(),
     )
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

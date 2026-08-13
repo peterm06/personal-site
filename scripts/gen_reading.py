@@ -73,6 +73,11 @@ def read_books():
     return books
 
 
+def fmt_long(d):
+    """'August 8, 2026' -- strftime('%-d') is not portable, so build it here."""
+    return f"{d.strftime('%B')} {d.day}, {d.year}"
+
+
 def by_year(books):
     years = {}
     for b in books:
@@ -757,7 +762,7 @@ HTML = """<!doctype html>
       </section>
 
       <footer>
-        Last updated <time datetime="{updated_iso}">{updated}</time>.
+        Last book: <time datetime="{last_date_iso}">{last_date}</time>
       </footer>
     </main>
 
@@ -841,8 +846,9 @@ def main():
     years = by_year(books)
     five = sum(1 for b in books if b[3])
 
-    # stamped at generation time; %-d is not portable, so build the day by hand
-    today = dt.date.today()
+    # The footer date comes from the data, not the clock: it is the last book
+    # finished, so regenerating unchanged data yields a byte-identical file.
+    last = books[-1][0]  # read_books() sorts ascending
 
     html = HTML.format(
         total=f"{len(books):,}",
@@ -850,8 +856,8 @@ def main():
         svg_wide=build_svg(years, PER_ROW_WIDE, wide=True),
         svg_narrow=build_svg(years, PER_ROW_NARROW, wide=False),
         list_html=build_list(years),
-        updated=f"{today.strftime('%B')} {today.day}, {today.year}",
-        updated_iso=today.isoformat(),
+        last_date=fmt_long(last),
+        last_date_iso=last.isoformat(),
     )
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
