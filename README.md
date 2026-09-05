@@ -1,10 +1,10 @@
 # Peter Miller - Personal Site
 
-My personal site. Hand-authored static HTML — no framework, no build step.
+My personal site, built with help from Claude.
 
 ## Pages
 
-- `index.html` — landing page (`/`)
+- `index.html` — landing page (`/`): name, profile links, contact info
 - `workouts/index.html` — fitness calendar (`/workouts`). **Generated — do not
   hand-edit.**
 - `reading/index.html` — book mosaic (`/reading`). **Generated — do not
@@ -36,6 +36,11 @@ Re-run it whenever the data changes — e.g. after appending new rows to
 `data/fitness/cp_classes.csv`. The script overwrites `workouts/index.html` in
 place; commit the regenerated file along with the data change.
 
+CorePower doesn't offer a CSV export, so to add new classes you can either
+manually append rows to `data/fitness/cp_classes.csv`, or give a recent
+screenshot of the app's Class History screen to an agent like Claude and it
+can update the CSV for you.
+
 To tweak the page itself (colors, geometry, copy), edit
 `scripts/gen_workouts.py` and re-run — changes made directly to
 `workouts/index.html` are lost on the next regeneration.
@@ -52,3 +57,11 @@ python3 -m http.server 8000
 
 Then visit <http://localhost:8000>. This also exercises the real `/workouts`
 URL, which `file://` cannot.
+
+## History: how the workouts data was originally assembled
+
+The initial `otf_workouts_full.csv` and `cp_classes.csv` weren't exported from
+either app directly — Orangetheory and CorePower don't offer a clean data
+export. Instead, years of class-confirmation emails from both services were
+gathered and parsed into CSVs, giving a full history of classes going back to 2018. Classes since then have been added incrementally, via CSV exports where
+available and screenshot transcription otherwise (see above).
