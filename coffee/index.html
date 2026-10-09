@@ -411,15 +411,23 @@
         height: 12cqw;
         fill: currentColor;
       }
-      .body .cross {
+      .bag button { position: relative; }
+      .frown {
         position: absolute;
-        right: 8cqw;
-        top: 9cqw;
-        width: 11cqw;
-        height: 11cqw;
+        right: -6%;
+        top: 60%;
+        width: 26%;
+        height: auto;
+        aspect-ratio: 1;
+        transform: rotate(-8deg);
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+      }
+      .frown .disc { fill: #f2f3f5; }
+      .frown .eye { fill: #1a2028; }
+      .frown .mouth {
         fill: none;
-        stroke: currentColor;
-        stroke-width: 3.5;
+        stroke: #1a2028;
+        stroke-width: 1.8;
         stroke-linecap: round;
       }
       .nope .body {
