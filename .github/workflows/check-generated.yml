@@ -1,6 +1,6 @@
 name: Check generated pages
 
-# workouts/index.html and reading/index.html are built from data/ by the
+# workouts/, reading/ and coffee/index.html are built from data/ by the
 # scripts in scripts/. Fail if a PR changes the data or a generator without
 # committing the regenerated page.
 
@@ -19,10 +19,11 @@ jobs:
           python-version: '3.12'
       - run: python3 scripts/gen_workouts.py
       - run: python3 scripts/gen_reading.py
+      - run: python3 scripts/gen_coffee.py
       - name: Fail if a generated page is out of date
         run: |
-          if ! git diff --quiet -- workouts/index.html reading/index.html; then
-            git diff --stat -- workouts/index.html reading/index.html
-            echo '::error::Generated pages are out of date. Run python3 scripts/gen_workouts.py and python3 scripts/gen_reading.py, then commit the result.'
+          if ! git diff --quiet -- workouts/index.html reading/index.html coffee/index.html; then
+            git diff --stat -- workouts/index.html reading/index.html coffee/index.html
+            echo '::error::Generated pages are out of date. Run python3 scripts/gen_workouts.py, python3 scripts/gen_reading.py and python3 scripts/gen_coffee.py, then commit the result.'
             exit 1
           fi

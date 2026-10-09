@@ -1,53 +1,50 @@
 #!/usr/bin/env python3
-"""Generate reading/index.html from the StoryGraph export in data/reading/.
+"""Generate coffee/index.html from data/coffee/bags.csv.
 
-A book mosaic: one small square per book, in the order they were finished,
-grouped into a block per year (newest on top). Each year's books wrap at a fixed
-number per row so no row runs the full page width. Color is categorical, not a
-scale -- five-star books are filled from a metallic gradient, everything else is
-one flat slate.
+A coffee mosaic, built exactly like reading/: one small square per bag, in the
+order they were drunk, grouped into a block per year (newest on top). Colour is
+categorical, never a scale -- loved bags are filled from the same metallic
+gradient as /reading's five-star books, ok bags are one flat slate, and nope
+bags are a hollow slate outline, set apart by shape rather than hue so they
+read at 10px and for colourblind visitors. Decaf has no mark; it is in the
+details.
 
-The metal is a single <linearGradient> in userSpaceOnUse coordinates spanning the
-whole grid, so each five-star square samples a different part of the ramp
-according to where it sits. That positional variation is what reads as metal; a
-gradient inside one 10px square would be invisible. It also drifts slowly, which
-echoes the sheen animation on the site's <h1>.
+Selecting a square prints the bag (coffee, roaster, date, rating, decaf, and
+any notes) into a bar along the bottom. The "Loved only" switch swaps the
+mosaic for a list of loved bags, linkable as /coffee/#loved.
 
-Squares carry a <title> child, which gives a native browser tooltip (book,
-author, month) on hover with no JavaScript. Only the wide layout gets them --
-the narrow layout is for touch screens, where there is no hover.
+It reads:  data/coffee/bags.csv  roaster, coffee, drank, rating, decaf, notes
+and writes: coffee/index.html    (served at /coffee/)
 
-The page is pre-rendered (both SVGs are baked into the HTML) so it works with no
-JavaScript and no build step. Re-run after updating the export:
+    python3 scripts/gen_coffee.py
 
-    python3 scripts/gen_reading.py
-
-It reads:  data/reading/storygraph_export.csv
-and writes: reading/index.html  (served at /reading)
-
-The directory-plus-index layout matches workouts/ -- it yields the clean
-/reading URL on any static host without extensionless-URL rewriting.
+`drank` is a year ("2024") or a month ("2024-06"). Exact days are not asked
+for: old bags rarely have one. Within a year, bags with a month sort by it and
+bags without one count as earliest, keeping their row order, so bags.csv is
+kept oldest first and new rows are appended at the bottom.
 """
 
 import csv
-import datetime as dt
 import os
+import re
+import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "data", "reading", "storygraph_export.csv")
-OUT = os.path.join(ROOT, "reading", "index.html")
+BAGS = os.path.join(ROOT, "data", "coffee", "bags.csv")
+OUT = os.path.join(ROOT, "coffee", "index.html")
 
-# --- geometry (SVG user units; each SVG scales to its container via viewBox) ---
+# --- geometry: the same as /reading (SVG user units; viewBox scales them) ---
 CELL = 10
 GAP = 3
 PITCH = CELL + GAP
 YEAR_LABEL_H = 19   # space above each year's rows for its heading
 YEAR_GAP = 20       # space between year blocks
-PER_ROW_WIDE = 40   # books per row on desktop
-PER_ROW_NARROW = 24 # books per row under the mobile breakpoint
+PER_ROW_WIDE = 40   # bags per row on desktop
+PER_ROW_NARROW = 24 # bags per row under the mobile breakpoint
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+RATINGS = ("nope", "ok", "loved")
 
 
 def esc(s):
@@ -55,47 +52,74 @@ def esc(s):
              .replace(">", "&gt;").replace('"', "&quot;"))
 
 
-def read_books():
-    """Every finished book as (date, title, author, is_five), oldest first."""
-    books = []
-    with open(SRC) as f:
-        for r in csv.DictReader(f):
-            raw = r["Last Date Read"].strip()
-            if not raw:
+def fail(path, line, msg):
+    sys.exit(f"{os.path.relpath(path, ROOT)}:{line}: {msg}")
+
+
+def read_bags():
+    """Every bag as a dict, in file order (oldest first)."""
+    bags = []
+    with open(BAGS, newline="") as f:
+        for n, r in enumerate(csv.DictReader(f), start=2):
+            roaster, coffee = r["roaster"].strip(), r["coffee"].strip()
+            if not roaster and not coffee:
                 continue
-            d = dt.date(*(int(p) for p in raw.split("/")))
-            author = r["Authors"].strip()
-            if len(author) > 60:  # a few rows list a dozen contributors
-                author = author[:57].rstrip(", ") + "…"
-            books.append((d, r["Title"].strip(), author,
-                          r["Star Rating"].strip() == "5.0"))
-    books.sort(key=lambda b: b[0])
-    return books
+            if not roaster or not coffee:
+                fail(BAGS, n, "every bag needs a roaster and a coffee")
+            m = re.match(r"^(\d{4})(?:-(\d{1,2}))?$", r["drank"].strip())
+            if not m:
+                fail(BAGS, n, f"drank {r['drank']!r} should be YYYY or YYYY-MM")
+            month = int(m.group(2)) if m.group(2) else 0
+            if month > 12:
+                fail(BAGS, n, f"drank {r['drank']!r} has no month {month}")
+            rating = r["rating"].strip().lower()
+            if rating not in RATINGS:
+                fail(BAGS, n, f"rating {r['rating']!r} should be one of {', '.join(RATINGS)}")
+            bags.append({
+                "roaster": roaster,
+                "coffee": coffee,
+                "year": int(m.group(1)),
+                "month": month,
+                "rating": rating,
+                "decaf": r["decaf"].strip().lower() in ("yes", "y", "true", "1"),
+                "notes": r["notes"].strip(),
+                "row": n,
+            })
+    return bags
 
 
-def fmt_long(d):
-    """'August 8, 2026' -- strftime('%-d') is not portable, so build it here."""
-    return f"{d.strftime('%B')} {d.day}, {d.year}"
+def when(b):
+    return f"{MONTHS[b['month'] - 1]} {b['year']}" if b["month"] else str(b["year"])
 
 
-def by_year(books):
+def by_year(bags):
+    """Year -> bags in the order they were drunk: by month (no month counts as
+    earliest), ties kept in file order."""
     years = {}
-    for b in books:
-        years.setdefault(b[0].year, []).append(b)
+    for b in bags:
+        years.setdefault(b["year"], []).append(b)
+    for y in years:
+        years[y].sort(key=lambda b: (b["month"], b["row"]))
     return years
 
 
+def label(b):
+    """What the readout bar prints: coffee, roaster, date, then rating (ok is
+    the default, so it goes unsaid) and decaf."""
+    parts = [f'{b["coffee"]} — {b["roaster"]}', when(b)]
+    if b["rating"] != "ok":
+        parts.append(b["rating"])
+    if b["decaf"]:
+        parts.append("decaf")
+    return " · ".join(parts)
+
+
 def build_svg(years, per_row, wide):
-    """One block per year, newest on top; books wrap at per_row.
+    """One block per year, newest on top; bags wrap at per_row.
 
-    Only the wide layout carries data-b labels. The narrow layout deliberately
-    omits them -- both layouts emit the same books in the same order, so the
-    click handler looks a square up in the wide layout by index instead.
-    Duplicating 1,383 labels would nearly double the gzipped page for no gain.
-
-    These are data-b attributes rather than <title> children on purpose: a
-    <title> forces a native hover tooltip, which would compete with the readout
-    bar the click handler drives.
+    Only the wide layout carries data-b (and data-n, the notes). Both layouts
+    emit the same bags in the same order, so the click handler looks a narrow
+    square up in the wide layout by index, exactly as /reading does.
     """
     order = sorted(years, reverse=True)
     width = per_row * PITCH - GAP
@@ -103,62 +127,61 @@ def build_svg(years, per_row, wide):
     parts = []
     y = 2
     for year in order:
-        books = years[year]
-        rows = -(-len(books) // per_row)  # ceil
+        bags = years[year]
+        rows = -(-len(bags) // per_row)  # ceil
         parts.append(
             f'<text class="yr" x="0" y="{y + 13}">{year}</text>'
             f'<text class="yn" x="{width}" y="{y + 13}" text-anchor="end">'
-            f'{len(books)} book{"s" if len(books) != 1 else ""}</text>'
+            f'{len(bags)} bag{"s" if len(bags) != 1 else ""}</text>'
         )
         grid_top = y + YEAR_LABEL_H
-        for i, (d, title, author, is_five) in enumerate(books):
+        for i, b in enumerate(bags):
             cx = (i % per_row) * PITCH
             cy = grid_top + (i // per_row) * PITCH
-            cls = "b five" if is_five else "b"
+            cls = "b" if b["rating"] == "ok" else f'b {b["rating"]}'
             rect = (f'<rect class="{cls}" x="{cx}" y="{cy}" '
                     f'width="{CELL}" height="{CELL}" rx="2"')
             if wide:
-                star = "★ " if is_five else ""
-                who = f" — {author}" if author else ""
-                when = f" · {MONTHS[d.month - 1]} {d.year}"
-                label = esc(f"{star}{title}{who}{when}")
-                parts.append(f'{rect} data-b="{label}"/>')
+                notes = f' data-n="{esc(b["notes"])}"' if b["notes"] else ""
+                parts.append(f'{rect} data-b="{esc(label(b))}"{notes}/>')
             else:
                 parts.append(f"{rect}/>")
         y = grid_top + rows * PITCH + YEAR_GAP
 
     height = y - YEAR_GAP + 2
-    hint = " Select any square for the book, author, and month."
     return (
         f'<svg class="mosaic {"wide" if wide else "narrow"}" '
         f'viewBox="0 0 {width} {height}" role="img" '
         f'preserveAspectRatio="xMinYMin meet" '
-        f'aria-label="One square per book, grouped by year from '
-        f'{order[0]} at the top down to {order[-1]}. Five-star books are '
-        f'picked out in metallic gold.{hint}">'
+        f'aria-label="One square per bag of coffee, grouped by year from '
+        f'{order[0]} at the top down to {order[-1]}. Loved bags are picked '
+        f'out in metallic gold; bags that missed are hollow outlines. Select '
+        f'any square for the coffee, roaster, and date.">'
         + "".join(parts) + "</svg>"
     )
 
 
 def build_list(years):
-    """Five-star books only, grouped by year (newest first), in finish order."""
+    """Loved bags only, grouped by year (newest first), in the order drunk."""
     blocks = []
     for year in sorted(years, reverse=True):
-        books = years[year]
-        fives = [b for b in books if b[3]]
-        if not fives:
+        bags = years[year]
+        loved = [b for b in bags if b["rating"] == "loved"]
+        if not loved:
             continue
         items = "".join(
             f'<li><span class="bullet" aria-hidden="true"></span>'
-            f'<span class="txt"><span class="t">{esc(title)}</span>'
-            # a couple of rows have no author; skip the span so no blank line
-            + (f'<span class="a">{esc(author)}</span>' if author else "")
-            + f'</span><span class="m">{MONTHS[d.month - 1]}</span></li>'
-            for d, title, author, _ in fives
+            f'<span class="txt"><span class="t">{esc(b["coffee"])}</span>'
+            f'<span class="a">{esc(b["roaster"])}'
+            + (" · decaf" if b["decaf"] else "") + "</span>"
+            + (f'<span class="a n">{esc(b["notes"])}</span>' if b["notes"] else "")
+            + f'</span><span class="m">'
+            + (MONTHS[b["month"] - 1] if b["month"] else "") + "</span></li>"
+            for b in loved
         )
         blocks.append(
             f'<div class="ygroup"><h2>{year}'
-            f'<span class="yn">{len(fives)} of {len(books)} books</span></h2>'
+            f'<span class="yn">{len(loved)} of {len(bags)} bags</span></h2>'
             f"<ul>{items}</ul></div>"
         )
     return "\n        ".join(blocks)
@@ -169,19 +192,19 @@ HTML = """<!doctype html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Reading — Peter Miller</title>
+    <title>Coffee — Peter Miller</title>
     <meta
       name="description"
-      content="Every book finished since 2008, one square at a time."
+      content="{description}"
     />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Peter Miller" />
-    <meta property="og:title" content="Reading — Peter Miller" />
+    <meta property="og:title" content="Coffee — Peter Miller" />
     <meta
       property="og:description"
-      content="Every book finished since 2008, one square at a time."
+      content="{description}"
     />
-    <meta property="og:url" content="https://www.peterhmiller.com/reading/" />
+    <meta property="og:url" content="https://www.peterhmiller.com/coffee/" />
     <meta property="og:image" content="https://www.peterhmiller.com/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -211,7 +234,8 @@ HTML = """<!doctype html>
         --violet: #a982e3;
         --sheen-edge: var(--paper);
 
-        /* book mosaic: one flat slate for every book, a metal ramp for 5 stars.
+        /* the same palette as /reading: one flat slate for an ok bag, the metal
+           ramp for a loved one, and a hollow slate outline for a nope.
            The ramp is bright at its peak -- on the dark ink those highlights
            read as light catching a surface. Its floor stays high on purpose:
            the variation is decorative, so no square should look dim enough to
@@ -430,11 +454,20 @@ HTML = """<!doctype html>
         fill: var(--book);
         cursor: pointer;
       }}
-      .mosaic .five {{
+      .mosaic .loved {{
         fill: url(#metal);
       }}
+      /* a nope is a hollow outline: set apart from ok by shape, not hue, so it
+         survives 10px and colourblind eyes, and it stays quiet. The fill is
+         transparent rather than none so the whole square is still clickable,
+         and the 1px inset stroke keeps it the same size as its neighbours. */
+      .mosaic .nope {{
+        fill: transparent;
+        stroke: var(--book);
+        stroke-width: 1.5;
+      }}
 
-      /* Hover previews the target, .sel marks the square whose book is showing.
+      /* Hover previews the target, .sel marks the square whose bag is showing.
          --paper inverts with the theme, so the outline reads against both the
          slate and the gold. The stroke is centred on the edge, so half of it
          sits in the 3px gutter and never touches a neighbour. */
@@ -447,7 +480,7 @@ HTML = """<!doctype html>
       /* Under reduced motion, skip the drifting gradient entirely and use one
          flat metal tone -- SMIL animation cannot be paused from CSS. */
       @media (prefers-reduced-motion: reduce) {{
-        .mosaic .five {{ fill: var(--metal-flat); }}
+        .mosaic .loved {{ fill: var(--metal-flat); }}
       }}
 
       footer {{
@@ -465,7 +498,7 @@ HTML = """<!doctype html>
       }}
 
       /* --- readout: a bar pinned to the bottom, at every width. Selecting a
-             square is the one way to read a book off the mosaic, so the same
+             square is the one way to read a bag off the mosaic, so the same
              treatment runs on desktop and touch alike. --- */
       .readout {{
         display: none;
@@ -488,14 +521,14 @@ HTML = """<!doctype html>
       }}
       /* keep the text lined up with the page's own column instead of the
          far-left edge of a wide bar */
-      .readout span {{
+      .readout > span {{
         width: 100%;
         max-width: 44rem;
       }}
       /* nothing is hidden behind the fixed bar */
       body:has(.readout.show) {{ padding-bottom: 7rem; }}
       /* the readout describes a square in the mosaic, so it goes away with it */
-      body:has(#five-stars:target) .readout {{ display: none; }}
+      body:has(#loved:target) .readout {{ display: none; }}
 
       /* --- view switch: an iOS-style toggle --- */
       .switchwrap {{
@@ -549,15 +582,15 @@ HTML = """<!doctype html>
 
       /* "on" state. The knob takes --ink, which is the page background and so
          is always the opposite of the gold it sits on, in either theme. */
-      body:has(#five-stars:target) .switchtrack {{
+      body:has(#loved:target) .switchtrack {{
         background: var(--metal-flat);
       }}
-      body:has(#five-stars:target) .knob {{
+      body:has(#loved:target) .knob {{
         transform: translateX(19px);
         background: var(--ink);
       }}
-      body:has(#five-stars:target) .to-list {{ display: none; }}
-      body:has(#five-stars:target) .to-mosaic {{ display: block; }}
+      body:has(#loved:target) .to-list {{ display: none; }}
+      body:has(#loved:target) .to-mosaic {{ display: block; }}
 
       @media (prefers-reduced-motion: reduce) {{
         .knob,
@@ -568,15 +601,15 @@ HTML = """<!doctype html>
       .list-view {{
         display: none;
         margin-top: 2.25rem;
-        /* Jumping to #five-stars would scroll the list to the top of the
+        /* Jumping to #loved would scroll the list to the top of the
            viewport, taking the switch with it and leaving no way back. An
            oversized scroll margin puts the target above the document start, so
            the browser clamps to the top and nothing moves -- while the URL stays
            shareable. */
         scroll-margin-top: 100vh;
       }}
-      body:has(#five-stars:target) .hero {{ display: none; }}
-      body:has(#five-stars:target) .list-view {{ display: block; }}
+      body:has(#loved:target) .hero {{ display: none; }}
+      body:has(#loved:target) .list-view {{ display: block; }}
       .ygroup + .ygroup {{ margin-top: 2rem; }}
       .ygroup h2 {{
         font-family: 'Fraunces', serif;
@@ -632,6 +665,11 @@ HTML = """<!doctype html>
         color: var(--muted);
         font-size: 0.85rem;
         margin-top: 0.15rem;
+      }}
+      .ygroup .n {{ font-style: italic; }}
+      .readout .notes {{
+        display: block;
+        color: var(--muted);
       }}
       .ygroup .m {{
         color: var(--muted);
@@ -749,19 +787,19 @@ HTML = """<!doctype html>
 
     <main>
       <p class="eyebrow"><a href="/">&larr; Peter Miller</a></p>
-      <h1>Reading by the numbers</h1>
+      <h1>Coffee by the numbers</h1>
       <p class="lede">
-        Every book finished since 2008, one square at a time.
+        {description}
       </p>
 
       <div class="summary-card">
         <div class="summary-primary">
-          <div class="stat"><div class="num">{total}</div><div class="lbl">books since 2008</div></div>
-          <div class="stat"><div class="num"><span class="dot"></span>{five}</div><div class="lbl">five stars</div></div>
+          <div class="stat"><div class="num">{total}</div><div class="lbl">{total_lbl}</div></div>
+          <div class="stat"><div class="num"><span class="dot"></span>{loved}</div><div class="lbl">loved</div></div>
 
-          <!-- CSS-only view switch, driven by the URL fragment so the five-star
-               view is linkable as /reading/#five-stars. The track and knob are
-               a single element that animates via `body:has(#five-stars:target)`;
+          <!-- CSS-only view switch, driven by the URL fragment so the loved
+               view is linkable as /coffee/#loved. The track and knob are
+               a single element that animates via `body:has(#loved:target)`;
                the two anchors are invisible hit areas layered over it, one of
                which is hidden at any time. (A checkbox would animate the same
                way but could not be linked to, and would disagree with the hash
@@ -770,34 +808,32 @@ HTML = """<!doctype html>
             <span class="switchtrack" aria-hidden="true"
               ><span class="knob"></span
             ></span>
-            <span class="switchlbl">5 stars only</span>
-            <a class="hit to-list" href="#five-stars"
-              aria-label="Show only five-star books"></a>
+            <span class="switchlbl">loved only</span>
+            <a class="hit to-list" href="#loved"
+              aria-label="Show only loved bags"></a>
             <a class="hit to-mosaic" href="#"
-              aria-label="Show all books"></a>
+              aria-label="Show all bags"></a>
           </div>
         </div>
       </div>
 
-      <section class="hero" aria-label="Book mosaic">
+      <section class="hero" aria-label="Coffee mosaic">
         {svg_wide}
         {svg_narrow}
-        <p class="hint">Click or tap a square for the book, author, and month.</p>
+        {hint}
       </section>
 
-      <!-- Readout bar. Selecting a square prints its book here, on desktop and
+      <!-- Readout bar. Selecting a square prints its bag here, on desktop and
            touch alike; hidden until something is selected. -->
       <p class="readout" id="readout" role="status" aria-live="polite">
-        <span id="readout-text"></span>
+        <span><span id="readout-text"></span><span class="notes" id="readout-notes"></span></span>
       </p>
 
-      <section class="list-view" id="five-stars" aria-label="Five-star books by year">
+      <section class="list-view" id="loved" aria-label="Loved bags by year">
         {list_html}
       </section>
 
-      <footer>
-        Last book: <time datetime="{last_date_iso}">{last_date}</time>
-      </footer>
+      {footer}
     </main>
 
     <script>
@@ -826,19 +862,19 @@ HTML = """<!doctype html>
         }})
       }})()
 
-      /* Readout. Selecting a square prints its book into the bar at the bottom
+      /* Readout. Selecting a square prints its bag into the bar at the bottom
          -- the same interaction on desktop and touch, rather than a native
          hover tooltip the phone could never reach.
 
-         Only the wide layout carries data-b labels. Both layouts emit the same
-         books in the same order, so a narrow square is looked up in the (hidden
-         but present) wide layout at the same index, which keeps ~1,383
-         duplicate strings out of the file. */
+         Only the wide layout carries data-b (and data-n) labels. Both layouts
+         emit the same bags in the same order, so a narrow square is looked up
+         in the (hidden but present) wide layout at the same index. */
       ;(function () {{
         var wide = document.querySelector('svg.wide')
         var narrow = document.querySelector('svg.narrow')
         var out = document.getElementById('readout')
         var text = document.getElementById('readout-text')
+        var notes = document.getElementById('readout-notes')
         if (!wide || !out || !text) return
 
         var wideRects = wide.getElementsByTagName('rect')
@@ -849,14 +885,14 @@ HTML = """<!doctype html>
           selected = null
           out.classList.remove('show')
           text.textContent = ''
+          notes.textContent = ''
         }}
 
-        function bookFor(rect, svg) {{
-          var own = rect.getAttribute('data-b')
-          if (own) return own
+        /* the wide square holding this bag's labels */
+        function labelled(rect, svg) {{
+          if (rect.hasAttribute('data-b')) return rect
           var i = Array.prototype.indexOf.call(svg.getElementsByTagName('rect'), rect)
-          var twin = wideRects[i]
-          return twin ? twin.getAttribute('data-b') : null
+          return wideRects[i] || null
         }}
 
         function wire(svg) {{
@@ -865,13 +901,14 @@ HTML = """<!doctype html>
             var rect = e.target.closest ? e.target.closest('rect') : null
             if (!rect) return clear() // clicking the gutter dismisses
 
-            var book = bookFor(rect, svg)
-            if (!book) return clear()
+            var src = labelled(rect, svg)
+            if (!src) return clear()
 
             if (selected) selected.classList.remove('sel')
             rect.classList.add('sel')
             selected = rect
-            text.textContent = book
+            text.textContent = src.getAttribute('data-b')
+            notes.textContent = src.getAttribute('data-n') || ''
             out.classList.add('show')
           }})
         }}
@@ -890,34 +927,47 @@ HTML = """<!doctype html>
 
 
 def main():
-    books = read_books()
-    years = by_year(books)
-    five = sum(1 for b in books if b[3])
+    bags = read_bags()
+    years = by_year(bags)
+    loved = sum(b["rating"] == "loved" for b in bags)
 
-    # The footer date comes from the data, not the clock: it is the last book
-    # finished, so regenerating unchanged data yields a byte-identical file.
-    last = books[-1][0]  # read_books() sorts ascending
+    if bags:
+        first = min(years)
+        description = f"Every bag of coffee since {first}, one square at a time."
+        total_lbl = f"bags since {first}"
+        wide = build_svg(years, PER_ROW_WIDE, wide=True)
+        narrow = build_svg(years, PER_ROW_NARROW, wide=False)
+        hint = ('<p class="hint">Click or tap a square for the coffee, '
+                'roaster, and date.</p>')
+        # The footer comes from the data, not the clock, so regenerating
+        # unchanged data yields a byte-identical file.
+        footer = f"<footer>Last bag: {when(years[max(years)][-1])}</footer>"
+    else:
+        description = "Every bag of coffee, one square at a time."
+        total_lbl = "bags"
+        wide = narrow = footer = ""
+        hint = '<p class="hint">No bags yet.</p>'
 
     html = HTML.format(
-        total=f"{len(books):,}",
-        five=f"{five:,}",
-        svg_wide=build_svg(years, PER_ROW_WIDE, wide=True),
-        svg_narrow=build_svg(years, PER_ROW_NARROW, wide=False),
+        description=description,
+        total=f"{len(bags):,}",
+        total_lbl=total_lbl,
+        loved=f"{loved:,}",
+        svg_wide=wide,
+        svg_narrow=narrow,
+        hint=hint,
         list_html=build_list(years),
-        last_date=fmt_long(last),
-        last_date_iso=last.isoformat(),
+        footer=footer,
     )
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w") as f:
         f.write(html)
 
-    lo, hi = min(years), max(years)
+    nope = sum(b["rating"] == "nope" for b in bags)
     print(f"Wrote {OUT}")
-    print(f"  {len(books)} books, {lo}-{hi} ({len(years)} years)")
-    print(f"  {five} five-star ({100 * five / len(books):.1f}%)")
-    print(f"  busiest year: {max(years, key=lambda y: len(years[y]))} "
-          f"({max(len(v) for v in years.values())} books)")
+    print(f"  {len(bags)} bags, {loved} loved, {nope} nope, "
+          f"{sum(b['decaf'] for b in bags)} decaf")
     print(f"  size: {os.path.getsize(OUT) / 1024:.0f} KB")
 
 

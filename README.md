@@ -5,12 +5,26 @@ My personal site, built with help from Claude.
 ## Pages
 
 - `index.html` — landing page (`/`): name, profile links,
-  and teasers linking to the workouts and reading pages
+  and teasers linking to the workouts, reading and coffee pages
 - `workouts/index.html` — fitness calendar (`/workouts/`). **Generated — do not
   hand-edit.**
 - `reading/index.html` — book mosaic (`/reading/`). **Generated — do not
   hand-edit.**
+- `coffee/index.html` — coffee mosaic (`/coffee/`). **Generated — do not
+  hand-edit.**
 - `404.html` — not-found page, served by the host for any unknown URL
+
+## Regenerating the coffee page
+
+`coffee/index.html` is built from `data/coffee/bags.csv`, kept by hand:
+`roaster, coffee, drank, rating, decaf, notes`. `drank` is `YYYY` or `YYYY-MM`;
+`rating` is `nope`, `ok` or `loved`; `decaf` is `yes` or blank; `notes` is
+optional. Keep it oldest first and append new bags at the bottom: within a
+year, bags without a month keep their row order.
+
+```bash
+python3 scripts/gen_coffee.py
+```
 
 ## Regenerating the reading page
 

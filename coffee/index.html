@@ -1,187 +1,21 @@
-#!/usr/bin/env python3
-"""Generate reading/index.html from the StoryGraph export in data/reading/.
-
-A book mosaic: one small square per book, in the order they were finished,
-grouped into a block per year (newest on top). Each year's books wrap at a fixed
-number per row so no row runs the full page width. Color is categorical, not a
-scale -- five-star books are filled from a metallic gradient, everything else is
-one flat slate.
-
-The metal is a single <linearGradient> in userSpaceOnUse coordinates spanning the
-whole grid, so each five-star square samples a different part of the ramp
-according to where it sits. That positional variation is what reads as metal; a
-gradient inside one 10px square would be invisible. It also drifts slowly, which
-echoes the sheen animation on the site's <h1>.
-
-Squares carry a <title> child, which gives a native browser tooltip (book,
-author, month) on hover with no JavaScript. Only the wide layout gets them --
-the narrow layout is for touch screens, where there is no hover.
-
-The page is pre-rendered (both SVGs are baked into the HTML) so it works with no
-JavaScript and no build step. Re-run after updating the export:
-
-    python3 scripts/gen_reading.py
-
-It reads:  data/reading/storygraph_export.csv
-and writes: reading/index.html  (served at /reading)
-
-The directory-plus-index layout matches workouts/ -- it yields the clean
-/reading URL on any static host without extensionless-URL rewriting.
-"""
-
-import csv
-import datetime as dt
-import os
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "data", "reading", "storygraph_export.csv")
-OUT = os.path.join(ROOT, "reading", "index.html")
-
-# --- geometry (SVG user units; each SVG scales to its container via viewBox) ---
-CELL = 10
-GAP = 3
-PITCH = CELL + GAP
-YEAR_LABEL_H = 19   # space above each year's rows for its heading
-YEAR_GAP = 20       # space between year blocks
-PER_ROW_WIDE = 40   # books per row on desktop
-PER_ROW_NARROW = 24 # books per row under the mobile breakpoint
-
-MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-
-def esc(s):
-    return (s.replace("&", "&amp;").replace("<", "&lt;")
-             .replace(">", "&gt;").replace('"', "&quot;"))
-
-
-def read_books():
-    """Every finished book as (date, title, author, is_five), oldest first."""
-    books = []
-    with open(SRC) as f:
-        for r in csv.DictReader(f):
-            raw = r["Last Date Read"].strip()
-            if not raw:
-                continue
-            d = dt.date(*(int(p) for p in raw.split("/")))
-            author = r["Authors"].strip()
-            if len(author) > 60:  # a few rows list a dozen contributors
-                author = author[:57].rstrip(", ") + "…"
-            books.append((d, r["Title"].strip(), author,
-                          r["Star Rating"].strip() == "5.0"))
-    books.sort(key=lambda b: b[0])
-    return books
-
-
-def fmt_long(d):
-    """'August 8, 2026' -- strftime('%-d') is not portable, so build it here."""
-    return f"{d.strftime('%B')} {d.day}, {d.year}"
-
-
-def by_year(books):
-    years = {}
-    for b in books:
-        years.setdefault(b[0].year, []).append(b)
-    return years
-
-
-def build_svg(years, per_row, wide):
-    """One block per year, newest on top; books wrap at per_row.
-
-    Only the wide layout carries data-b labels. The narrow layout deliberately
-    omits them -- both layouts emit the same books in the same order, so the
-    click handler looks a square up in the wide layout by index instead.
-    Duplicating 1,383 labels would nearly double the gzipped page for no gain.
-
-    These are data-b attributes rather than <title> children on purpose: a
-    <title> forces a native hover tooltip, which would compete with the readout
-    bar the click handler drives.
-    """
-    order = sorted(years, reverse=True)
-    width = per_row * PITCH - GAP
-
-    parts = []
-    y = 2
-    for year in order:
-        books = years[year]
-        rows = -(-len(books) // per_row)  # ceil
-        parts.append(
-            f'<text class="yr" x="0" y="{y + 13}">{year}</text>'
-            f'<text class="yn" x="{width}" y="{y + 13}" text-anchor="end">'
-            f'{len(books)} book{"s" if len(books) != 1 else ""}</text>'
-        )
-        grid_top = y + YEAR_LABEL_H
-        for i, (d, title, author, is_five) in enumerate(books):
-            cx = (i % per_row) * PITCH
-            cy = grid_top + (i // per_row) * PITCH
-            cls = "b five" if is_five else "b"
-            rect = (f'<rect class="{cls}" x="{cx}" y="{cy}" '
-                    f'width="{CELL}" height="{CELL}" rx="2"')
-            if wide:
-                star = "★ " if is_five else ""
-                who = f" — {author}" if author else ""
-                when = f" · {MONTHS[d.month - 1]} {d.year}"
-                label = esc(f"{star}{title}{who}{when}")
-                parts.append(f'{rect} data-b="{label}"/>')
-            else:
-                parts.append(f"{rect}/>")
-        y = grid_top + rows * PITCH + YEAR_GAP
-
-    height = y - YEAR_GAP + 2
-    hint = " Select any square for the book, author, and month."
-    return (
-        f'<svg class="mosaic {"wide" if wide else "narrow"}" '
-        f'viewBox="0 0 {width} {height}" role="img" '
-        f'preserveAspectRatio="xMinYMin meet" '
-        f'aria-label="One square per book, grouped by year from '
-        f'{order[0]} at the top down to {order[-1]}. Five-star books are '
-        f'picked out in metallic gold.{hint}">'
-        + "".join(parts) + "</svg>"
-    )
-
-
-def build_list(years):
-    """Five-star books only, grouped by year (newest first), in finish order."""
-    blocks = []
-    for year in sorted(years, reverse=True):
-        books = years[year]
-        fives = [b for b in books if b[3]]
-        if not fives:
-            continue
-        items = "".join(
-            f'<li><span class="bullet" aria-hidden="true"></span>'
-            f'<span class="txt"><span class="t">{esc(title)}</span>'
-            # a couple of rows have no author; skip the span so no blank line
-            + (f'<span class="a">{esc(author)}</span>' if author else "")
-            + f'</span><span class="m">{MONTHS[d.month - 1]}</span></li>'
-            for d, title, author, _ in fives
-        )
-        blocks.append(
-            f'<div class="ygroup"><h2>{year}'
-            f'<span class="yn">{len(fives)} of {len(books)} books</span></h2>'
-            f"<ul>{items}</ul></div>"
-        )
-    return "\n        ".join(blocks)
-
-
-HTML = """<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Reading — Peter Miller</title>
+    <title>Coffee — Peter Miller</title>
     <meta
       name="description"
-      content="Every book finished since 2008, one square at a time."
+      content="Every bag of coffee since 2026, one square at a time."
     />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Peter Miller" />
-    <meta property="og:title" content="Reading — Peter Miller" />
+    <meta property="og:title" content="Coffee — Peter Miller" />
     <meta
       property="og:description"
-      content="Every book finished since 2008, one square at a time."
+      content="Every bag of coffee since 2026, one square at a time."
     />
-    <meta property="og:url" content="https://www.peterhmiller.com/reading/" />
+    <meta property="og:url" content="https://www.peterhmiller.com/coffee/" />
     <meta property="og:image" content="https://www.peterhmiller.com/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -200,7 +34,7 @@ HTML = """<!doctype html>
       rel="stylesheet"
     />
     <style>
-      :root {{
+      :root {
         --ink: #0f1218;
         --paper: #e9ebee;
         --muted: #8f98a3;
@@ -211,7 +45,8 @@ HTML = """<!doctype html>
         --violet: #a982e3;
         --sheen-edge: var(--paper);
 
-        /* book mosaic: one flat slate for every book, a metal ramp for 5 stars.
+        /* the same palette as /reading: one flat slate for an ok bag, the metal
+           ramp for a loved one, and a hollow slate outline for a nope.
            The ramp is bright at its peak -- on the dark ink those highlights
            read as light catching a surface. Its floor stays high on purpose:
            the variation is decorative, so no square should look dim enough to
@@ -223,9 +58,9 @@ HTML = """<!doctype html>
         --metal-4: #cfa147;
         --metal-5: #b28f3c;
         --metal-flat: #d4a24c;
-      }}
+      }
 
-      [data-theme='light'] {{
+      [data-theme='light'] {
         --ink: #f2f3f5;
         --paper: #1a2028;
         --muted: #5c6672;
@@ -248,23 +83,23 @@ HTML = """<!doctype html>
         --metal-4: #96701a;
         --metal-5: #86641a;
         --metal-flat: #96701a;
-      }}
+      }
 
-      * {{
+      * {
         box-sizing: border-box;
         margin: 0;
         padding: 0;
-      }}
+      }
 
-      html {{
+      html {
         height: 100%;
         /* reserve the scrollbar gutter on every page: the landing page does not
            scroll and this one does, so without this the centred content and the
            fixed toggle shift sideways by the scrollbar width on navigation */
         scrollbar-gutter: stable;
-      }}
+      }
 
-      body {{
+      body {
         min-height: 100%;
         display: grid;
         justify-items: center;
@@ -278,45 +113,45 @@ HTML = """<!doctype html>
         transition:
           background 240ms ease,
           color 240ms ease;
-      }}
+      }
 
-      main {{
+      main {
         width: 100%;
         max-width: 44rem;
-      }}
+      }
 
       /* --- Cross-document view transitions ---
          Same-origin navigations cross-fade instead of hard-cutting. Requires
          http(s) (not file://) and is Chrome/Safari-only today; unsupported
          browsers just navigate instantly, so this is purely additive. */
-      @view-transition {{
+      @view-transition {
         navigation: auto;
-      }}
+      }
 
-      @media (prefers-reduced-motion: reduce) {{
-        @view-transition {{
+      @media (prefers-reduced-motion: reduce) {
+        @view-transition {
           navigation: none;
-        }}
-      }}
+        }
+      }
 
-      .eyebrow {{
+      .eyebrow {
         color: var(--muted);
         font-size: 0.875rem;
         letter-spacing: 0.02em;
-      }}
+      }
 
-      .eyebrow a {{
+      .eyebrow a {
         color: var(--muted);
         text-decoration: none;
         border-bottom: 1px solid var(--hairline);
-      }}
+      }
 
       .eyebrow a:hover,
-      .eyebrow a:focus-visible {{
+      .eyebrow a:focus-visible {
         color: var(--paper);
-      }}
+      }
 
-      h1 {{
+      h1 {
         font-family: 'Fraunces', serif;
         font-weight: 600;
         font-size: clamp(2.2rem, 7vw, 3rem);
@@ -339,53 +174,53 @@ HTML = """<!doctype html>
         background-clip: text;
         color: transparent;
         animation: sheen 14s ease-in-out infinite alternate;
-      }}
+      }
 
-      @keyframes sheen {{
-        from {{ background-position: 0% 0; }}
-        to {{ background-position: 100% 0; }}
-      }}
+      @keyframes sheen {
+        from { background-position: 0% 0; }
+        to { background-position: 100% 0; }
+      }
 
-      @media (prefers-reduced-motion: reduce) {{
-        h1 {{ animation: none; background-position: 50% 0; }}
-      }}
+      @media (prefers-reduced-motion: reduce) {
+        h1 { animation: none; background-position: 50% 0; }
+      }
 
-      .lede {{
+      .lede {
         margin-top: 0.75rem;
         color: var(--muted);
         max-width: 42rem;
-      }}
+      }
 
       /* --- summary card --- */
-      .summary-card {{
+      .summary-card {
         margin-top: 2.25rem;
         border: 1px solid var(--hairline);
         border-radius: 14px;
         padding: 1.5rem 2rem;
         width: fit-content;
         max-width: 100%;
-      }}
-      .summary-primary {{
+      }
+      .summary-primary {
         display: flex;
         flex-wrap: wrap;
         gap: 2.5rem;
         align-items: baseline;
-      }}
-      .stat .num {{
+      }
+      .stat .num {
         font-family: 'Fraunces', serif;
         font-weight: 600;
         font-size: 2.2rem;
         line-height: 1;
-      }}
-      .stat .lbl {{
+      }
+      .stat .lbl {
         color: var(--muted);
         font-size: 0.8rem;
         margin-top: 0.25rem;
-      }}
-      .summary-primary .stat:first-child .num {{
+      }
+      .summary-primary .stat:first-child .num {
         font-size: 2.8rem;
-      }}
-      .num .dot {{
+      }
+      .num .dot {
         display: inline-block;
         width: 16px;
         height: 16px;
@@ -399,75 +234,84 @@ HTML = """<!doctype html>
           var(--metal-4),
           var(--metal-1)
         );
-      }}
+      }
 
       /* --- the mosaic --- */
-      .hero {{
+      .hero {
         margin-top: 2.25rem;
-      }}
-      svg.mosaic {{
+      }
+      svg.mosaic {
         display: block;
         width: 100%;
         height: auto;
         overflow: visible;
-      }}
-      svg.narrow {{ display: none; }}
+      }
+      svg.narrow { display: none; }
 
-      .mosaic .yr {{
+      .mosaic .yr {
         font-family: 'Fraunces', serif;
         font-weight: 600;
         font-size: 13px;
         fill: var(--muted);
-      }}
-      .mosaic .yn {{
+      }
+      .mosaic .yn {
         font-family: 'Atkinson Hyperlegible', sans-serif;
         font-size: 9.5px;
         fill: var(--muted);
         opacity: 0.75;
-      }}
+      }
 
-      .mosaic .b {{
+      .mosaic .b {
         fill: var(--book);
         cursor: pointer;
-      }}
-      .mosaic .five {{
+      }
+      .mosaic .loved {
         fill: url(#metal);
-      }}
+      }
+      /* a nope is a hollow outline: set apart from ok by shape, not hue, so it
+         survives 10px and colourblind eyes, and it stays quiet. The fill is
+         transparent rather than none so the whole square is still clickable,
+         and the 1px inset stroke keeps it the same size as its neighbours. */
+      .mosaic .nope {
+        fill: transparent;
+        stroke: var(--book);
+        stroke-width: 1.5;
+      }
 
-      /* Hover previews the target, .sel marks the square whose book is showing.
+      /* Hover previews the target, .sel marks the square whose bag is showing.
          --paper inverts with the theme, so the outline reads against both the
          slate and the gold. The stroke is centred on the edge, so half of it
          sits in the 3px gutter and never touches a neighbour. */
       .mosaic .b:hover,
-      .mosaic .b.sel {{
+      .mosaic .b.sel {
         stroke: var(--paper);
         stroke-width: 1.5;
-      }}
+      }
 
       /* Under reduced motion, skip the drifting gradient entirely and use one
          flat metal tone -- SMIL animation cannot be paused from CSS. */
-      @media (prefers-reduced-motion: reduce) {{
-        .mosaic .five {{ fill: var(--metal-flat); }}
-      }}
+      @media (prefers-reduced-motion: reduce) {
+        .mosaic .loved { fill: var(--metal-flat); }
+      }
 
-      footer {{
+      footer {
         margin-top: 3rem;
         color: var(--muted);
         font-size: 0.8rem;
         opacity: 0.8;
-      }}
+      }
 
-      .hint {{
+      .hint {
         margin-top: 1.1rem;
         color: var(--muted);
         font-size: 0.8rem;
         opacity: 0.8;
-      }}
+      }
 
       /* --- readout: a bar pinned to the bottom, at every width. Selecting a
-             square is the one way to read a book off the mosaic, so the same
+             square is the one way to read a bag off the mosaic, so the same
              treatment runs on desktop and touch alike. --- */
-      .readout {{
+      .readout {
         display: none;
         position: fixed;
         left: 0;
@@ -481,24 +325,24 @@ HTML = """<!doctype html>
         line-height: 1.45;
         padding: 0.85rem 1.25rem;
         padding-bottom: calc(0.85rem + env(safe-area-inset-bottom));
-      }}
-      .readout.show {{
+      }
+      .readout.show {
         display: flex;
         justify-content: center;
-      }}
+      }
       /* keep the text lined up with the page's own column instead of the
          far-left edge of a wide bar */
-      .readout span {{
+      .readout > span {
         width: 100%;
         max-width: 44rem;
-      }}
+      }
       /* nothing is hidden behind the fixed bar */
-      body:has(.readout.show) {{ padding-bottom: 7rem; }}
+      body:has(.readout.show) { padding-bottom: 7rem; }
       /* the readout describes a square in the mosaic, so it goes away with it */
-      body:has(#five-stars:target) .readout {{ display: none; }}
+      body:has(#loved:target) .readout { display: none; }
 
       /* --- view switch: an iOS-style toggle --- */
-      .switchwrap {{
+      .switchwrap {
         position: relative;
         display: inline-grid;
         justify-items: center;
@@ -506,16 +350,16 @@ HTML = """<!doctype html>
         margin-left: auto; /* pushes it to the far edge of the card */
         /* bottom-aligned, so its label shares a line with the stats' labels */
         align-self: end;
-      }}
-      .switchtrack {{
+      }
+      .switchtrack {
         width: 46px;
         height: 27px;
         border-radius: 999px;
         background: var(--hairline);
         position: relative;
         transition: background 220ms ease;
-      }}
-      .knob {{
+      }
+      .knob {
         position: absolute;
         top: 3px;
         left: 3px;
@@ -526,59 +370,59 @@ HTML = """<!doctype html>
         transition:
           transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
           background 220ms ease;
-      }}
+      }
       /* styled exactly like a stat's label, and it stays muted when on: the
          gold track already says so */
-      .switchlbl {{
+      .switchlbl {
         font-size: 0.8rem;
         color: var(--muted);
         white-space: nowrap;
-      }}
+      }
 
       /* the whole wrap is clickable, label included; only one anchor shows */
-      .hit {{
+      .hit {
         position: absolute;
         inset: -4px;
         border-radius: 10px;
-      }}
-      .to-mosaic {{ display: none; }}
-      .hit:focus-visible {{
+      }
+      .to-mosaic { display: none; }
+      .hit:focus-visible {
         outline: 2px solid var(--indigo);
         outline-offset: 2px;
-      }}
+      }
 
       /* "on" state. The knob takes --ink, which is the page background and so
          is always the opposite of the gold it sits on, in either theme. */
-      body:has(#five-stars:target) .switchtrack {{
+      body:has(#loved:target) .switchtrack {
         background: var(--metal-flat);
-      }}
-      body:has(#five-stars:target) .knob {{
+      }
+      body:has(#loved:target) .knob {
         transform: translateX(19px);
         background: var(--ink);
-      }}
-      body:has(#five-stars:target) .to-list {{ display: none; }}
-      body:has(#five-stars:target) .to-mosaic {{ display: block; }}
+      }
+      body:has(#loved:target) .to-list { display: none; }
+      body:has(#loved:target) .to-mosaic { display: block; }
 
-      @media (prefers-reduced-motion: reduce) {{
+      @media (prefers-reduced-motion: reduce) {
         .knob,
-        .switchtrack {{ transition: none; }}
-      }}
+        .switchtrack { transition: none; }
+      }
 
       /* --- five-star list view --- */
-      .list-view {{
+      .list-view {
         display: none;
         margin-top: 2.25rem;
-        /* Jumping to #five-stars would scroll the list to the top of the
+        /* Jumping to #loved would scroll the list to the top of the
            viewport, taking the switch with it and leaving no way back. An
            oversized scroll margin puts the target above the document start, so
            the browser clamps to the top and nothing moves -- while the URL stays
            shareable. */
         scroll-margin-top: 100vh;
-      }}
-      body:has(#five-stars:target) .hero {{ display: none; }}
-      body:has(#five-stars:target) .list-view {{ display: block; }}
-      .ygroup + .ygroup {{ margin-top: 2rem; }}
-      .ygroup h2 {{
+      }
+      body:has(#loved:target) .hero { display: none; }
+      body:has(#loved:target) .list-view { display: block; }
+      .ygroup + .ygroup { margin-top: 2rem; }
+      .ygroup h2 {
         font-family: 'Fraunces', serif;
         font-weight: 600;
         font-size: 1.15rem;
@@ -588,32 +432,32 @@ HTML = """<!doctype html>
         gap: 0.6rem;
         padding-bottom: 0.5rem;
         border-bottom: 1px solid var(--hairline);
-      }}
-      .ygroup h2 .yn {{
+      }
+      .ygroup h2 .yn {
         font-family: 'Atkinson Hyperlegible', sans-serif;
         font-size: 0.75rem;
         font-weight: 400;
         margin-left: auto;
         opacity: 0.75;
-      }}
-      .ygroup ul {{
+      }
+      .ygroup ul {
         list-style: none;
         margin-top: 0.85rem;
         display: grid;
         gap: 0.9rem;
-      }}
-      .ygroup li {{
+      }
+      .ygroup li {
         display: grid;
         grid-template-columns: 11px 1fr auto;
         gap: 0.7rem;
         align-items: baseline;
         font-size: 0.95rem;
         line-height: 1.4;
-      }}
+      }
       /* title on its own line, author beneath it */
       .ygroup .t,
-      .ygroup .a {{ display: block; }}
-      .ygroup .bullet {{
+      .ygroup .a { display: block; }
+      .ygroup .bullet {
         width: 11px;
         height: 11px;
         border-radius: 3px;
@@ -627,41 +471,46 @@ HTML = """<!doctype html>
           var(--metal-1)
         );
         transform: translateY(0.1em);
-      }}
-      .ygroup .a {{
+      }
+      .ygroup .a {
         color: var(--muted);
         font-size: 0.85rem;
         margin-top: 0.15rem;
-      }}
-      .ygroup .m {{
+      }
+      .ygroup .n { font-style: italic; }
+      .readout .notes {
+        display: block;
+        color: var(--muted);
+      }
+      .ygroup .m {
         color: var(--muted);
         font-size: 0.75rem;
         white-space: nowrap;
         opacity: 0.7;
-      }}
+      }
 
       /* --- narrow screens: fewer books per row so squares stay legible --- */
-      @media (max-width: 600px) {{
-        .summary-card {{ width: 100%; }}
-        .summary-primary {{
+      @media (max-width: 600px) {
+        .summary-card { width: 100%; }
+        .summary-primary {
           justify-content: center;
           text-align: center;
           gap: 1.25rem 2.5rem;
-        }}
+        }
         /* the total gets its own row, the other stat shares the next one --
            without this they wrap lopsided */
-        .summary-primary .stat:first-child {{ flex-basis: 100%; }}
+        .summary-primary .stat:first-child { flex-basis: 100%; }
         /* the switch drops to its own centred row rather than hugging an edge */
-        .switchwrap {{
+        .switchwrap {
           margin-left: 0;
           justify-self: center;
-        }}
-        svg.wide {{ display: none; }}
-        svg.narrow {{ display: block; }}
-      }}
+        }
+        svg.wide { display: none; }
+        svg.narrow { display: block; }
+      }
 
       /* --- theme toggle (same as index) --- */
-      #theme-toggle {{
+      #theme-toggle {
         position: fixed;
         top: 1.25rem;
         right: 1.25rem;
@@ -678,42 +527,42 @@ HTML = """<!doctype html>
         transition:
           color 160ms ease,
           border-color 160ms ease;
-      }}
+      }
       #theme-toggle:hover,
-      #theme-toggle:focus-visible {{
+      #theme-toggle:focus-visible {
         color: var(--paper);
         border-color: var(--muted);
-      }}
-      #theme-toggle:focus-visible {{
+      }
+      #theme-toggle:focus-visible {
         outline: 2px solid var(--indigo);
         outline-offset: 3px;
-      }}
-      #theme-toggle svg {{ width: 1.125rem; height: 1.125rem; }}
-      #theme-toggle .sun {{ display: none; }}
-      #theme-toggle .moon {{ display: block; }}
-      [data-theme='light'] #theme-toggle .sun {{ display: block; }}
-      [data-theme='light'] #theme-toggle .moon {{ display: none; }}
+      }
+      #theme-toggle svg { width: 1.125rem; height: 1.125rem; }
+      #theme-toggle .sun { display: none; }
+      #theme-toggle .moon { display: block; }
+      [data-theme='light'] #theme-toggle .sun { display: block; }
+      [data-theme='light'] #theme-toggle .moon { display: none; }
     </style>
     <script>
       /* Runs before first paint so the stored theme is already applied when
          the page renders -- otherwise light-mode visitors see a flash of the
          default dark palette on every navigation. */
-      ;(function () {{
+      ;(function () {
         var theme = null
-        try {{
+        try {
           theme = localStorage.getItem('theme')
-        }} catch (e) {{
+        } catch (e) {
           /* no persistence available */
-        }}
-        if (!theme) {{
+        }
+        if (!theme) {
           theme = window.matchMedia('(prefers-color-scheme: light)').matches
             ? 'light'
             : 'dark'
-        }}
-        if (theme === 'light') {{
+        }
+        if (theme === 'light') {
           document.documentElement.setAttribute('data-theme', 'light')
-        }}
-      }})()
+        }
+      })()
     </script>
   </head>
   <body>
@@ -749,19 +598,19 @@ HTML = """<!doctype html>
 
     <main>
       <p class="eyebrow"><a href="/">&larr; Peter Miller</a></p>
-      <h1>Reading by the numbers</h1>
+      <h1>Coffee by the numbers</h1>
       <p class="lede">
-        Every book finished since 2008, one square at a time.
+        Every bag of coffee since 2026, one square at a time.
       </p>
 
       <div class="summary-card">
         <div class="summary-primary">
-          <div class="stat"><div class="num">{total}</div><div class="lbl">books since 2008</div></div>
-          <div class="stat"><div class="num"><span class="dot"></span>{five}</div><div class="lbl">five stars</div></div>
+          <div class="stat"><div class="num">23</div><div class="lbl">bags since 2026</div></div>
+          <div class="stat"><div class="num"><span class="dot"></span>9</div><div class="lbl">loved</div></div>
 
-          <!-- CSS-only view switch, driven by the URL fragment so the five-star
-               view is linkable as /reading/#five-stars. The track and knob are
-               a single element that animates via `body:has(#five-stars:target)`;
+          <!-- CSS-only view switch, driven by the URL fragment so the loved
+               view is linkable as /coffee/#loved. The track and knob are
+               a single element that animates via `body:has(#loved:target)`;
                the two anchors are invisible hit areas layered over it, one of
                which is hidden at any time. (A checkbox would animate the same
                way but could not be linked to, and would disagree with the hash
@@ -770,156 +619,118 @@ HTML = """<!doctype html>
             <span class="switchtrack" aria-hidden="true"
               ><span class="knob"></span
             ></span>
-            <span class="switchlbl">5 stars only</span>
-            <a class="hit to-list" href="#five-stars"
-              aria-label="Show only five-star books"></a>
+            <span class="switchlbl">loved only</span>
+            <a class="hit to-list" href="#loved"
+              aria-label="Show only loved bags"></a>
             <a class="hit to-mosaic" href="#"
-              aria-label="Show all books"></a>
+              aria-label="Show all bags"></a>
           </div>
         </div>
       </div>
 
-      <section class="hero" aria-label="Book mosaic">
-        {svg_wide}
-        {svg_narrow}
-        <p class="hint">Click or tap a square for the book, author, and month.</p>
+      <section class="hero" aria-label="Coffee mosaic">
+        <svg class="mosaic wide" viewBox="0 0 517 36" role="img" preserveAspectRatio="xMinYMin meet" aria-label="One square per bag of coffee, grouped by year from 2026 at the top down to 2026. Loved bags are picked out in metallic gold; bags that missed are hollow outlines. Select any square for the coffee, roaster, and date."><text class="yr" x="0" y="15">2026</text><text class="yn" x="517" y="15" text-anchor="end">23 bags</text><rect class="b loved" x="0" y="21" width="10" height="10" rx="2" data-b="Decaf El Vergel Pink Bourbon — Equator Coffees · 2026 · loved · decaf"/><rect class="b" x="13" y="21" width="10" height="10" rx="2" data-b="Ole — Immigrant Culture · 2026"/><rect class="b loved" x="26" y="21" width="10" height="10" rx="2" data-b="Spring Blend — Ceremony · 2026 · loved"/><rect class="b nope" x="39" y="21" width="10" height="10" rx="2" data-b="Fluffy Pillows — Proud Mary · 2026 · nope · decaf"/><rect class="b loved" x="52" y="21" width="10" height="10" rx="2" data-b="Climate Project — Ceremony · 2026 · loved"/><rect class="b loved" x="65" y="21" width="10" height="10" rx="2" data-b="Geisha Chocosombra — Gravel &amp; Grind · 2026 · loved"/><rect class="b nope" x="78" y="21" width="10" height="10" rx="2" data-b="Decaf Honduran — Dublin Roasters · 2026 · nope · decaf"/><rect class="b nope" x="91" y="21" width="10" height="10" rx="2" data-b="Shaitani — Ghost · 2026 · nope"/><rect class="b" x="104" y="21" width="10" height="10" rx="2" data-b="Thesis — Ceremony · 2026"/><rect class="b nope" x="117" y="21" width="10" height="10" rx="2" data-b="La Jarjacha — Ghost · 2026 · nope"/><rect class="b" x="130" y="21" width="10" height="10" rx="2" data-b="Decaf Monkaaba — Ilse · 2026 · decaf"/><rect class="b loved" x="143" y="21" width="10" height="10" rx="2" data-b="Summer Blend — Ceremony · 2026 · loved"/><rect class="b" x="156" y="21" width="10" height="10" rx="2" data-b="El Nevado Decaf — Hex Coffee · 2026 · decaf"/><rect class="b loved" x="169" y="21" width="10" height="10" rx="2" data-b="Finca El Sendero — Commonplace Coffee · 2026 · loved"/><rect class="b" x="182" y="21" width="10" height="10" rx="2" data-b="Mason Bday Gesha Trio — Luminous · 2026"/><rect class="b loved" x="195" y="21" width="10" height="10" rx="2" data-b="Ethiopia Yirgacheffe Chelbesa — Ceremony · 2026 · loved"/><rect class="b" x="208" y="21" width="10" height="10" rx="2" data-b="Edinson Argote — Reprise Coffee Roasters · 2026"/><rect class="b" x="221" y="21" width="10" height="10" rx="2" data-b="Long Play — Verve Coffee · 2026 · decaf"/><rect class="b nope" x="234" y="21" width="10" height="10" rx="2" data-b="Warm &amp; Fuzzy — Proud Mary · 2026 · nope"/><rect class="b loved" x="247" y="21" width="10" height="10" rx="2" data-b="El Injerto Gesha — Equator Coffees · 2026 · loved"/><rect class="b nope" x="260" y="21" width="10" height="10" rx="2" data-b="Pink Bourbon Colombia — Luminous · 2026 · nope"/><rect class="b" x="273" y="21" width="10" height="10" rx="2" data-b="Halo Beriti — SQ1 Coffee Roasters · 2026"/><rect class="b loved" x="286" y="21" width="10" height="10" rx="2" data-b="Destroyer — Ceremony · 2026 · loved"/></svg>
+        <svg class="mosaic narrow" viewBox="0 0 309 36" role="img" preserveAspectRatio="xMinYMin meet" aria-label="One square per bag of coffee, grouped by year from 2026 at the top down to 2026. Loved bags are picked out in metallic gold; bags that missed are hollow outlines. Select any square for the coffee, roaster, and date."><text class="yr" x="0" y="15">2026</text><text class="yn" x="309" y="15" text-anchor="end">23 bags</text><rect class="b loved" x="0" y="21" width="10" height="10" rx="2"/><rect class="b" x="13" y="21" width="10" height="10" rx="2"/><rect class="b loved" x="26" y="21" width="10" height="10" rx="2"/><rect class="b nope" x="39" y="21" width="10" height="10" rx="2"/><rect class="b loved" x="52" y="21" width="10" height="10" rx="2"/><rect class="b loved" x="65" y="21" width="10" height="10" rx="2"/><rect class="b nope" x="78" y="21" width="10" height="10" rx="2"/><rect class="b nope" x="91" y="21" width="10" height="10" rx="2"/><rect class="b" x="104" y="21" width="10" height="10" rx="2"/><rect class="b nope" x="117" y="21" width="10" height="10" rx="2"/><rect class="b" x="130" y="21" width="10" height="10" rx="2"/><rect class="b loved" x="143" y="21" width="10" height="10" rx="2"/><rect class="b" x="156" y="21" width="10" height="10" rx="2"/><rect class="b loved" x="169" y="21" width="10" height="10" rx="2"/><rect class="b" x="182" y="21" width="10" height="10" rx="2"/><rect class="b loved" x="195" y="21" width="10" height="10" rx="2"/><rect class="b" x="208" y="21" width="10" height="10" rx="2"/><rect class="b" x="221" y="21" width="10" height="10" rx="2"/><rect class="b nope" x="234" y="21" width="10" height="10" rx="2"/><rect class="b loved" x="247" y="21" width="10" height="10" rx="2"/><rect class="b nope" x="260" y="21" width="10" height="10" rx="2"/><rect class="b" x="273" y="21" width="10" height="10" rx="2"/><rect class="b loved" x="286" y="21" width="10" height="10" rx="2"/></svg>
+        <p class="hint">Click or tap a square for the coffee, roaster, and date.</p>
       </section>
 
-      <!-- Readout bar. Selecting a square prints its book here, on desktop and
+      <!-- Readout bar. Selecting a square prints its bag here, on desktop and
            touch alike; hidden until something is selected. -->
       <p class="readout" id="readout" role="status" aria-live="polite">
-        <span id="readout-text"></span>
+        <span><span id="readout-text"></span><span class="notes" id="readout-notes"></span></span>
       </p>
 
-      <section class="list-view" id="five-stars" aria-label="Five-star books by year">
-        {list_html}
+      <section class="list-view" id="loved" aria-label="Loved bags by year">
+        <div class="ygroup"><h2>2026<span class="yn">9 of 23 bags</span></h2><ul><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Decaf El Vergel Pink Bourbon</span><span class="a">Equator Coffees · decaf</span></span><span class="m"></span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Spring Blend</span><span class="a">Ceremony</span></span><span class="m"></span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Climate Project</span><span class="a">Ceremony</span></span><span class="m"></span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Geisha Chocosombra</span><span class="a">Gravel &amp; Grind</span></span><span class="m"></span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Summer Blend</span><span class="a">Ceremony</span></span><span class="m"></span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Finca El Sendero</span><span class="a">Commonplace Coffee</span></span><span class="m"></span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Ethiopia Yirgacheffe Chelbesa</span><span class="a">Ceremony</span></span><span class="m"></span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">El Injerto Gesha</span><span class="a">Equator Coffees</span></span><span class="m"></span></li><li><span class="bullet" aria-hidden="true"></span><span class="txt"><span class="t">Destroyer</span><span class="a">Ceremony</span></span><span class="m"></span></li></ul></div>
       </section>
 
-      <footer>
-        Last book: <time datetime="{last_date_iso}">{last_date}</time>
-      </footer>
+      <footer>Last bag: 2026</footer>
     </main>
 
     <script>
       /* The theme itself is applied by the inline script in <head>; this only
          wires up the toggle. */
-      ;(function () {{
+      ;(function () {
         var root = document.documentElement
         var btn = document.getElementById('theme-toggle')
-        function isLight() {{ return root.getAttribute('data-theme') === 'light' }}
-        function label() {{
+        function isLight() { return root.getAttribute('data-theme') === 'light' }
+        function label() {
           btn.setAttribute(
             'aria-label',
             isLight() ? 'Switch to dark mode' : 'Switch to light mode'
           )
-        }}
+        }
         label()
-        btn.addEventListener('click', function () {{
+        btn.addEventListener('click', function () {
           var next = isLight() ? 'dark' : 'light'
-          if (next === 'light') {{
+          if (next === 'light') {
             root.setAttribute('data-theme', 'light')
-          }} else {{
+          } else {
             root.removeAttribute('data-theme')
-          }}
-          try {{ localStorage.setItem('theme', next) }} catch (e) {{}}
+          }
+          try { localStorage.setItem('theme', next) } catch (e) {}
           label()
-        }})
-      }})()
+        })
+      })()
 
-      /* Readout. Selecting a square prints its book into the bar at the bottom
+      /* Readout. Selecting a square prints its bag into the bar at the bottom
          -- the same interaction on desktop and touch, rather than a native
          hover tooltip the phone could never reach.
 
-         Only the wide layout carries data-b labels. Both layouts emit the same
-         books in the same order, so a narrow square is looked up in the (hidden
-         but present) wide layout at the same index, which keeps ~1,383
-         duplicate strings out of the file. */
-      ;(function () {{
+         Only the wide layout carries data-b (and data-n) labels. Both layouts
+         emit the same bags in the same order, so a narrow square is looked up
+         in the (hidden but present) wide layout at the same index. */
+      ;(function () {
         var wide = document.querySelector('svg.wide')
         var narrow = document.querySelector('svg.narrow')
         var out = document.getElementById('readout')
         var text = document.getElementById('readout-text')
+        var notes = document.getElementById('readout-notes')
         if (!wide || !out || !text) return
 
         var wideRects = wide.getElementsByTagName('rect')
         var selected = null
 
-        function clear() {{
+        function clear() {
           if (selected) selected.classList.remove('sel')
           selected = null
           out.classList.remove('show')
           text.textContent = ''
-        }}
+          notes.textContent = ''
+        }
 
-        function bookFor(rect, svg) {{
-          var own = rect.getAttribute('data-b')
-          if (own) return own
+        /* the wide square holding this bag's labels */
+        function labelled(rect, svg) {
+          if (rect.hasAttribute('data-b')) return rect
           var i = Array.prototype.indexOf.call(svg.getElementsByTagName('rect'), rect)
-          var twin = wideRects[i]
-          return twin ? twin.getAttribute('data-b') : null
-        }}
+          return wideRects[i] || null
+        }
 
-        function wire(svg) {{
+        function wire(svg) {
           if (!svg) return
-          svg.addEventListener('click', function (e) {{
+          svg.addEventListener('click', function (e) {
             var rect = e.target.closest ? e.target.closest('rect') : null
             if (!rect) return clear() // clicking the gutter dismisses
 
-            var book = bookFor(rect, svg)
-            if (!book) return clear()
+            var src = labelled(rect, svg)
+            if (!src) return clear()
 
             if (selected) selected.classList.remove('sel')
             rect.classList.add('sel')
             selected = rect
-            text.textContent = book
+            text.textContent = src.getAttribute('data-b')
+            notes.textContent = src.getAttribute('data-n') || ''
             out.classList.add('show')
-          }})
-        }}
+          })
+        }
 
         wire(wide)
         wire(narrow)
 
-        document.addEventListener('keydown', function (e) {{
+        document.addEventListener('keydown', function (e) {
           if (e.key === 'Escape') clear()
-        }})
-      }})()
+        })
+      })()
     </script>
   </body>
 </html>
-"""
-
-
-def main():
-    books = read_books()
-    years = by_year(books)
-    five = sum(1 for b in books if b[3])
-
-    # The footer date comes from the data, not the clock: it is the last book
-    # finished, so regenerating unchanged data yields a byte-identical file.
-    last = books[-1][0]  # read_books() sorts ascending
-
-    html = HTML.format(
-        total=f"{len(books):,}",
-        five=f"{five:,}",
-        svg_wide=build_svg(years, PER_ROW_WIDE, wide=True),
-        svg_narrow=build_svg(years, PER_ROW_NARROW, wide=False),
-        list_html=build_list(years),
-        last_date=fmt_long(last),
-        last_date_iso=last.isoformat(),
-    )
-
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w") as f:
-        f.write(html)
-
-    lo, hi = min(years), max(years)
-    print(f"Wrote {OUT}")
-    print(f"  {len(books)} books, {lo}-{hi} ({len(years)} years)")
-    print(f"  {five} five-star ({100 * five / len(books):.1f}%)")
-    print(f"  busiest year: {max(years, key=lambda y: len(years[y]))} "
-          f"({max(len(v) for v in years.values())} books)")
-    print(f"  size: {os.path.getsize(OUT) / 1024:.0f} KB")
-
-
-if __name__ == "__main__":
-    main()

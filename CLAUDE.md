@@ -7,8 +7,8 @@ no bundler, no dependencies at runtime.
 
 Each page is one self-contained `.html` file at the repo root. CSS lives in a
 `<style>` block in the `<head>`. JavaScript is kept to a minimum: a tiny inline
-theme toggle on every page, plus the reading page's click-to-reveal listener
-(see below). There is **no build step** — files are served as-is. Fonts (Fraunces +
+theme toggle on every page, plus the reading and coffee pages' click-to-reveal
+listeners (see below). There is **no build step** — files are served as-is. Fonts (Fraunces +
 Atkinson Hyperlegible) are the one external dependency, loaded from Google Fonts.
 
 Pages:
@@ -17,6 +17,8 @@ Pages:
 - `workouts/index.html` — the fitness page, a day-level workout calendar.
   **Generated** — see below; do not hand-edit.
 - `reading/index.html` — the reading page, a book mosaic. **Generated** — see
+  below; do not hand-edit.
+- `coffee/index.html` — the coffee page, a mosaic of bags. **Generated** — see
   below; do not hand-edit.
 - `404.html` — the not-found page. Cloudflare Pages serves a root `404.html` for
   any unmatched URL (without it, Pages falls back to `index.html` with a 200), so
@@ -81,7 +83,9 @@ the output.
 
 The reading mosaic adds `--book` (an ordinary book) and `--metal-1..5` plus
 `--metal-flat` (the five-star gold ramp). `index.html` carries flat `--gold` and
-`--book` too, so its teaser squares match the page they link to.
+`--book` too, so its teaser squares match the pages they link to (the coffee
+teaser adds a hollow square for a nope), plus `--roast`, the coffee link's
+hover accent.
 
 ## The workouts page (generated)
 
@@ -166,6 +170,37 @@ Three things here are load-bearing:
   purpose: it puts the anchor above the document start so the browser clamps to
   the top, meaning the switch never scrolls itself off screen. The list renders
   as real HTML (not SVG) so titles are selectable and findable with ⌘F.
+
+## The coffee page (generated)
+
+`coffee/index.html` is produced by [`scripts/gen_coffee.py`](scripts/gen_coffee.py)
+from `data/coffee/bags.csv`, kept by hand (new bags usually arrive through the
+Site Inbox): `roaster, coffee, drank, rating, decaf, notes`. `drank` is `YYYY`
+or `YYYY-MM` (old bags rarely have a day, so none is asked for); `rating` is
+`nope` / `ok` / `loved`; `decaf` is `yes` or blank. Kept oldest first, new rows
+appended at the bottom.
+
+```bash
+python3 scripts/gen_coffee.py
+```
+
+The generator fails with a file and line number on a malformed row.
+
+It is **a copy of /reading on purpose**: the same mosaic geometry, metal
+gradient, readout bar, wide/narrow SVG pair with the index lookup, and
+fragment-driven switch (`/coffee/#loved` swaps the mosaic for a list of loved
+bags). Everything said about /reading above holds here, so change the two
+together. What differs:
+
+- **Three categories, not two.** Loved takes the metal, ok the flat `--book`,
+  and nope is a **hollow** `--book` outline (`fill: transparent` so the square
+  stays clickable). Hollow differs by shape, not hue, so it reads at 10px and
+  for colourblind readers without drawing the eye to the misses.
+- **Decaf has no mark** by choice; it shows in the readout and the list.
+- **Order.** Within a year, by month with month-less bags counted as earliest,
+  ties kept in row order.
+- The wide squares carry `data-n` (notes) beside `data-b`; the readout prints
+  it on a second line.
 
 ## Previewing
 
