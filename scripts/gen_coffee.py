@@ -5,7 +5,7 @@ A shelf of coffee bags: one small bag per coffee, grouped into a block per year
 (newest on top), newest bag first within each year. Each bag is drawn in its
 roaster's two colours -- the bag colour behind the roaster's name, the label
 colour in a band at the bottom holding the coffee's name -- so every bag from
-one roaster matches. Loved bags carry a heart, nope bags fade back, decaf bags
+one roaster matches. Loved bags carry a heart, nope bags a cross and fade back, decaf bags
 say so in the band.
 
 The bags are plain HTML, not SVG, so the names are real text: selectable and
@@ -47,6 +47,12 @@ LIGHT_TEXT = "#f2f3f5"
 HEART = ('<svg class="love" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 '
          '21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.2 0 3.9 1.3 5.2 3 1.3-1.7 '
          '3-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>')
+
+
+# A nope gets a cross where a loved bag gets its heart, so the rating reads
+# from the mark itself and not only from the fade.
+CROSS = ('<svg class="cross" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5'
+         'L19 19M19 5L5 19"/></svg>')
 
 
 def esc(s):
@@ -160,7 +166,7 @@ def bag_html(b, roasters):
         f'<li class="{" ".join(cls)}"><button type="button" data-b="{label}"{notes}'
         f' aria-label="{label}"><span class="body"{style}>'
         f'<span class="r">{esc(b["roaster"])}</span>'
-        f'{HEART if b["rating"] == "loved" else ""}'
+        f'{HEART if b["rating"] == "loved" else CROSS if b["rating"] == "nope" else ""}'
         f'<span class="c">{"<span class=dc>Decaf</span>" if b["decaf"] else ""}'
         f'<span class="cn">{esc(b["coffee"])}</span></span>'
         f"</span></button></li>"
@@ -604,9 +610,20 @@ HTML = """<!doctype html>
         height: 12cqw;
         fill: currentColor;
       }}
+      .body .cross {{
+        position: absolute;
+        right: 8cqw;
+        top: 9cqw;
+        width: 11cqw;
+        height: 11cqw;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 3.5;
+        stroke-linecap: round;
+      }}
       .nope .body {{
         filter: saturate(0.3);
-        opacity: 0.45;
+        opacity: 0.55;
       }}
       .bag button:hover .body,
       .bag button.sel .body {{

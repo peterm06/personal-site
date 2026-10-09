@@ -202,6 +202,9 @@ Things that are load-bearing:
   with `container-type: inline-size`, and its type is sized in `cqw`, so it
   scales with the bag at every width with one layout and no breakpoint swap.
   Names stay real text, selectable and findable with ⌘F.
+- **Ratings read from a mark, not only colour.** Loved bags carry a heart and
+  nope bags a cross in the same corner (nope bags also fade). Ok bags carry
+  nothing.
 - **Order.** Years newest first; within a year, newest first by month, with
   month-less bags counted as earliest and ties kept in row order.
 - **The "Loved only" / "Decaf only" switches** work exactly like /reading's
