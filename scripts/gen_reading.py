@@ -174,6 +174,22 @@ HTML = """<!doctype html>
       name="description"
       content="Every book finished since 2008, one square at a time."
     />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Peter Miller" />
+    <meta property="og:title" content="Reading — Peter Miller" />
+    <meta
+      property="og:description"
+      content="Every book finished since 2008, one square at a time."
+    />
+    <meta property="og:url" content="https://www.peterhmiller.com/reading/" />
+    <meta property="og:image" content="https://www.peterhmiller.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Peter Miller, software engineer in Washington, DC."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
