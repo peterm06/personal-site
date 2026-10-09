@@ -70,8 +70,9 @@ Core palette (shared by every page):
 | `--hairline`  | borders / dividers                      |
 | `--jade`, `--sky`, `--indigo`, `--violet` | the iridescent accent ramp (used in the animated name gradient and per-link hues) |
 
-Theme selection: an inline script reads `localStorage.theme`, falling back to
-`prefers-color-scheme`. The toggle button sets/removes `data-theme='light'` on
+Theme selection: dark is the default for everyone. An inline script reads
+`localStorage.theme` and applies light only if the visitor chose it with the
+toggle; `prefers-color-scheme` is deliberately ignored. The toggle button sets/removes `data-theme='light'` on
 `<html>`. Copy this block verbatim into any new page so theming stays consistent.
 
 The workouts calendar adds its own vars (`--otf`, `--cp`, `--empty`) —

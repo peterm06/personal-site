@@ -531,19 +531,16 @@
     </style>
     <script>
       /* Runs before first paint so the stored theme is already applied when
-         the page renders -- otherwise light-mode visitors see a flash of the
+         the page renders -- otherwise visitors who chose light see a flash of the
          default dark palette on every navigation. */
       ;(function () {
+        /* dark unless the visitor chose light with the toggle; the OS
+           colour scheme is deliberately not consulted */
         var theme = null
         try {
           theme = localStorage.getItem('theme')
         } catch (e) {
           /* no persistence available */
-        }
-        if (!theme) {
-          theme = window.matchMedia('(prefers-color-scheme: light)').matches
-            ? 'light'
-            : 'dark'
         }
         if (theme === 'light') {
           document.documentElement.setAttribute('data-theme', 'light')
