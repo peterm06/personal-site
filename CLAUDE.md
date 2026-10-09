@@ -202,10 +202,11 @@ Things that are load-bearing:
   with `container-type: inline-size`, and its type is sized in `cqw`, so it
   scales with the bag at every width with one layout and no breakpoint swap.
   Names stay real text, selectable and findable with ⌘F.
-- **Ratings read from a mark, not only colour.** Loved bags carry a heart in
-  the top corner; nope bags carry a frowny-face sticker in fixed colours (so it
-  never reads as part of the roaster's print) and also fade. Ok bags carry
-  nothing.
+- **Ratings read from a mark, not only colour.** Loved and nope bags carry
+  a round sticker in the top corner, a gold heart or a grey broken heart, in
+  fixed colours so it never reads as part of the roaster's print. It sits
+  outside the bag's clip so it stays bright when a nope bag fades. Ok bags
+  carry nothing.
 - **Order.** Years newest first; within a year, newest first by month, with
   month-less bags counted as earliest and ties kept in row order.
 - **The "Loved only" / "Decaf only" switches** work exactly like /reading's

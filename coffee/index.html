@@ -382,7 +382,6 @@
         line-height: 1.02;
         padding: 23cqw 9cqw 0;
         text-wrap: balance;
-        overflow-wrap: break-word;
       }
       .body .c {
         margin-top: auto;
@@ -403,32 +402,35 @@
         text-transform: uppercase;
         margin-bottom: 1cqw;
       }
-      .body .love {
-        position: absolute;
-        right: 8cqw;
-        top: 9cqw;
-        width: 12cqw;
-        height: 12cqw;
-        fill: currentColor;
-      }
+      /* the rating sticker, top corner */
       .bag button { position: relative; }
-      .frown {
+      /* a float keeps only the lines beside the sticker clear of it, so a
+         long name still uses the full width below */
+      .loved .body .r::before,
+      .nope .body .r::before {
+        content: '';
+        float: right;
+        width: 23cqw;
+        height: 17cqw;
+      }
+      .sticker {
         position: absolute;
-        right: -6%;
-        top: 60%;
-        width: 26%;
+        right: 6%;
+        top: 12%;
+        width: 23%;
         height: auto;
         aspect-ratio: 1;
         transform: rotate(-8deg);
-        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+        filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.4));
       }
-      .frown .disc { fill: #f2f3f5; }
-      .frown .eye { fill: #1a2028; }
-      .frown .mouth {
+      .sticker .disc { fill: #f2f3f5; }
+      .sticker.loved .h { fill: #c9962e; }
+      .sticker.nope .h { fill: #6b7480; }
+      .sticker .crack {
         fill: none;
-        stroke: #1a2028;
-        stroke-width: 1.8;
-        stroke-linecap: round;
+        stroke: #f2f3f5;
+        stroke-width: 1.5;
+        stroke-linejoin: round;
       }
       .nope .body {
         filter: saturate(0.3);

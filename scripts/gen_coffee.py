@@ -5,7 +5,7 @@ A shelf of coffee bags: one small bag per coffee, grouped into a block per year
 (newest on top), newest bag first within each year. Each bag is drawn in its
 roaster's two colours -- the bag colour behind the roaster's name, the label
 colour in a band at the bottom holding the coffee's name -- so every bag from
-one roaster matches. Loved bags carry a heart, nope bags a frowny-face sticker and fade back, decaf bags
+one roaster matches. Loved bags carry a heart sticker, nope bags a broken-heart sticker and fade back, decaf bags
 say so in the band.
 
 The bags are plain HTML, not SVG, so the names are real text: selectable and
@@ -49,16 +49,20 @@ HEART = ('<svg class="love" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 
          '3-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>')
 
 
-# A nope gets a frowny-face sticker where a loved bag gets its heart, so the
-# rating reads from a mark and not only from the fade. It is a round sticker
-# in fixed colours, not the roaster's, so it never reads as part of the print,
-# and it sits outside the bag's clip-path so it can overhang the edge and stay
-# unfaded when the bag fades.
-FROWN = ('<svg class="frown" viewBox="0 0 24 24" aria-hidden="true">'
-         '<circle class="disc" cx="12" cy="12" r="11"/>'
-         '<circle class="eye" cx="8.5" cy="9.5" r="1.4"/>'
-         '<circle class="eye" cx="15.5" cy="9.5" r="1.4"/>'
-         '<path class="mouth" d="M7.5 17.2q4.5-4.4 9 0"/></svg>')
+# Loved and nope bags carry a round sticker in the top corner: a heart or a
+# broken heart. The sticker is in fixed colours, not the roaster's, so it never
+# reads as part of the print, and it sits outside the bag's clip-path so it
+# stays bright when a nope bag fades. Ok bags carry nothing.
+_HEART_IN_DISC = ('<path class="h" transform="translate(4.6 4.9) scale(.62)" d="M12 '
+                  '21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.2 0 3.9 1.3 5.2 3 1.3-1.7 '
+                  '3-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/>')
+STICKERS = {
+    "loved": ('<svg class="sticker loved" viewBox="0 0 24 24" aria-hidden="true">'
+              '<circle class="disc" cx="12" cy="12" r="11"/>' + _HEART_IN_DISC + '</svg>'),
+    "nope": ('<svg class="sticker nope" viewBox="0 0 24 24" aria-hidden="true">'
+             '<circle class="disc" cx="12" cy="12" r="11"/>' + _HEART_IN_DISC +
+             '<path class="crack" d="M12.3 7.6 10.6 11.2 13.2 13.4 11.5 17.6"/></svg>'),
+}
 
 
 def esc(s):
@@ -172,10 +176,9 @@ def bag_html(b, roasters):
         f'<li class="{" ".join(cls)}"><button type="button" data-b="{label}"{notes}'
         f' aria-label="{label}"><span class="body"{style}>'
         f'<span class="r">{esc(b["roaster"])}</span>'
-        f'{HEART if b["rating"] == "loved" else ""}'
         f'<span class="c">{"<span class=dc>Decaf</span>" if b["decaf"] else ""}'
         f'<span class="cn">{esc(b["coffee"])}</span></span>'
-        f"</span>{FROWN if b['rating'] == 'nope' else ''}</button></li>"
+        f"</span>{STICKERS.get(b['rating'], '')}</button></li>"
     )
 
 
@@ -587,7 +590,6 @@ HTML = """<!doctype html>
         line-height: 1.02;
         padding: 23cqw 9cqw 0;
         text-wrap: balance;
-        overflow-wrap: break-word;
       }}
       .body .c {{
         margin-top: auto;
@@ -608,32 +610,35 @@ HTML = """<!doctype html>
         text-transform: uppercase;
         margin-bottom: 1cqw;
       }}
-      .body .love {{
-        position: absolute;
-        right: 8cqw;
-        top: 9cqw;
-        width: 12cqw;
-        height: 12cqw;
-        fill: currentColor;
-      }}
+      /* the rating sticker, top corner */
       .bag button {{ position: relative; }}
-      .frown {{
+      /* a float keeps only the lines beside the sticker clear of it, so a
+         long name still uses the full width below */
+      .loved .body .r::before,
+      .nope .body .r::before {{
+        content: '';
+        float: right;
+        width: 23cqw;
+        height: 17cqw;
+      }}
+      .sticker {{
         position: absolute;
-        right: -6%;
-        top: 60%;
-        width: 26%;
+        right: 6%;
+        top: 12%;
+        width: 23%;
         height: auto;
         aspect-ratio: 1;
         transform: rotate(-8deg);
-        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+        filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.4));
       }}
-      .frown .disc {{ fill: #f2f3f5; }}
-      .frown .eye {{ fill: #1a2028; }}
-      .frown .mouth {{
+      .sticker .disc {{ fill: #f2f3f5; }}
+      .sticker.loved .h {{ fill: #c9962e; }}
+      .sticker.nope .h {{ fill: #6b7480; }}
+      .sticker .crack {{
         fill: none;
-        stroke: #1a2028;
-        stroke-width: 1.8;
-        stroke-linecap: round;
+        stroke: #f2f3f5;
+        stroke-width: 1.5;
+        stroke-linejoin: round;
       }}
       .nope .body {{
         filter: saturate(0.3);
