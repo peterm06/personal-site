@@ -240,8 +240,8 @@ HTML = """<!doctype html>
       property="og:description"
       content="A running tally of my workouts across CorePower and Orangetheory, as a calendar."
     />
-    <meta property="og:url" content="https://example.com/workouts/" />
-    <meta property="og:image" content="https://example.com/og.png" />
+    <meta property="og:url" content="https://www.peterhmiller.com/workouts/" />
+    <meta property="og:image" content="https://www.peterhmiller.com/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta

@@ -46,7 +46,7 @@ Two things to leave alone here:
 Every page carries Open Graph tags plus `twitter:card` (`summary_large_image`;
 X falls back to the `og:` title, description and image). They share one image,
 `og.png` (1200×630, the landing `h1` on `--ink`), and need **absolute** URLs, so
-the site origin is written into each `<head>`. The subpages' tags live in the
+the site origin (`https://www.peterhmiller.com`) is written into each `<head>`. The subpages' tags live in the
 generators' templates, like the rest of their markup.
 
 ## Palette & theming
