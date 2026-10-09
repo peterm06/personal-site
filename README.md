@@ -9,6 +9,7 @@ My personal site, built with help from Claude.
   hand-edit.**
 - `reading/index.html` — book mosaic (`/reading`). **Generated — do not
   hand-edit.**
+- `404.html` — not-found page, served by the host for any unknown URL
 
 ## Regenerating the reading page
 
