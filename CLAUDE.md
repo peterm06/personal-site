@@ -202,12 +202,10 @@ Things that are load-bearing:
   with `container-type: inline-size`, and its type is sized in `cqw`, so it
   scales with the bag at every width with one layout and no breakpoint swap.
   Names stay real text, selectable and findable with ⌘F.
-- **Stickers mark rating and decaf.** Round stickers straddle the bag's fold
-  line, top right: a gold heart for loved, a frowny face for nope (nope bags
-  also fade), an orange D for decaf. They are in fixed colours so they never
-  read as part of the roaster's print, and sit outside the bag's clip (sized
-  in `cqw` of the button) so they stay bright when a nope bag fades. Every
-  roaster name starts below the stickers, sticker or not, so names line up.
+- **Rating is the bag's treatment, not a mark.** Loved bags glow gold
+  (`drop-shadow` on the button, so the glow follows the gusset's clip-path;
+  `box-shadow` would be clipped away); nope bags go greyscale and dim; ok bags
+  are plain. Decaf has no mark on the bag by choice; it shows in the readout.
 - **Order.** Years newest first; within a year, newest first by month, with
   month-less bags counted as earliest and ties kept in row order.
 - **The "Loved only" switch** works exactly like /reading's 5-star switch:

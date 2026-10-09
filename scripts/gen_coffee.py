@@ -5,8 +5,8 @@ A shelf of coffee bags: one small bag per coffee, grouped into a block per year
 (newest on top), newest bag first within each year. Each bag is drawn in its
 roaster's two colours -- the bag colour behind the roaster's name, the label
 colour in a band at the bottom holding the coffee's name -- so every bag from
-one roaster matches. Stickers on the fold mark loved bags
-(a heart), nope bags (a frowny face; they also fade) and decaf (a D).
+one roaster matches. Loved bags glow gold around their
+edges; nope bags go grey and dim. Decaf is in the details, not on the bag.
 
 The bags are plain HTML, not SVG, so the names are real text: selectable and
 findable with Cmd-F. Their gusset shape (folded top, angled corners) is a CSS
@@ -47,34 +47,6 @@ LIGHT_TEXT = "#f2f3f5"
 HEART = ('<svg class="love" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 '
          '21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.2 0 3.9 1.3 5.2 3 1.3-1.7 '
          '3-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>')
-
-
-# Stickers sit across the bag's fold line, top right: a gold heart for loved,
-# a frowny face for nope, and an orange D for decaf (decaf bags are
-# traditionally orange). They are round and in fixed colours, not the
-# roaster's, so they never read as part of the print, and they sit outside the
-# bag's clip-path so they stay bright when a nope bag fades. Ok bags carry no
-# rating sticker.
-_DISC = '<circle class="disc" cx="12" cy="12" r="11"/>'
-STICKERS = {
-    "loved": ('<svg class="sticker loved" viewBox="0 0 24 24" aria-hidden="true">'
-              + _DISC + '<path class="h" transform="translate(4.6 4.9) scale(.62)" '
-              'd="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.2 0 3.9 1.3 5.2 '
-              '3 1.3-1.7 3-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 '
-              '21z"/></svg>'),
-    "nope": ('<svg class="sticker nope" viewBox="0 0 24 24" aria-hidden="true">'
-             + _DISC + '<circle class="f" cx="8.6" cy="9.6" r="1.35"/>'
-             '<circle class="f" cx="15.4" cy="9.6" r="1.35"/>'
-             '<path class="m" d="M7.8 17q4.2-4 8.4 0"/></svg>'),
-    "decaf": ('<svg class="sticker decaf" viewBox="0 0 24 24" aria-hidden="true">'
-              + _DISC + '<text x="12" y="16.6" text-anchor="middle">D</text></svg>'),
-}
-
-
-def stickers(b):
-    """Rating sticker rightmost, decaf beside it."""
-    out = STICKERS.get(b["rating"], "") + (STICKERS["decaf"] if b["decaf"] else "")
-    return f'<span class="stickers">{out}</span>' if out else ""
 
 
 def esc(s):
@@ -190,7 +162,7 @@ def bag_html(b, roasters):
         f'<span class="r">{esc(b["roaster"])}</span>'
         f'<span class="c">'
         f'<span class="cn">{esc(b["coffee"])}</span></span>'
-        f"</span>{stickers(b)}</button></li>"
+        f"</span></button></li>"
     )
 
 
@@ -588,9 +560,7 @@ HTML = """<!doctype html>
         font-weight: 600;
         font-size: 15cqw;
         line-height: 1.02;
-        /* always starts below the fold-line stickers, sticker or not, so
-           every name sits at the same height */
-        padding: 26cqw 9cqw 0;
+        padding: 23cqw 9cqw 0;
         text-wrap: balance;
       }}
       .body .c {{
@@ -605,44 +575,15 @@ HTML = """<!doctype html>
         line-height: 1.2;
         padding: 5cqw 9cqw;
       }}
-      /* stickers straddle the fold line (13cqw down), top right */
-      .bag button {{
-        position: relative;
-        container-type: inline-size;
+      /* Loved: a gold glow. drop-shadow on the button, not box-shadow on the
+         bag, so the glow follows the gusset's clip-path outline. */
+      .loved button {{
+        filter: drop-shadow(0 0 1.5px var(--gold)) drop-shadow(0 0 7px var(--gold));
       }}
-      .stickers {{
-        position: absolute;
-        top: 3cqw;
-        right: 6cqw;
-        display: flex;
-        flex-direction: row-reverse;
-        gap: 2cqw;
-      }}
-      .sticker {{
-        width: 20cqw;
-        height: 20cqw;
-        transform: rotate(-8deg);
-        filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.4));
-      }}
-      .sticker.decaf {{ transform: rotate(6deg); }}
-      .sticker .disc {{ fill: #f2f3f5; }}
-      .sticker.loved .h {{ fill: #c9962e; }}
-      .sticker.nope .f {{ fill: #3d4652; }}
-      .sticker.nope .m {{
-        fill: none;
-        stroke: #3d4652;
-        stroke-width: 1.8;
-        stroke-linecap: round;
-      }}
-      .sticker.decaf text {{
-        font-family: 'Fraunces', serif;
-        font-weight: 600;
-        font-size: 13px;
-        fill: #d4622a;
-      }}
+      /* Nope: grey and dim */
       .nope .body {{
-        filter: saturate(0.3);
-        opacity: 0.55;
+        filter: grayscale(1);
+        opacity: 0.45;
       }}
       .bag button:hover .body,
       .bag button.sel .body {{

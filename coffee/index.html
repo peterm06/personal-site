@@ -369,9 +369,7 @@
         font-weight: 600;
         font-size: 15cqw;
         line-height: 1.02;
-        /* always starts below the fold-line stickers, sticker or not, so
-           every name sits at the same height */
-        padding: 26cqw 9cqw 0;
+        padding: 23cqw 9cqw 0;
         text-wrap: balance;
       }
       .body .c {
@@ -386,44 +384,15 @@
         line-height: 1.2;
         padding: 5cqw 9cqw;
       }
-      /* stickers straddle the fold line (13cqw down), top right */
-      .bag button {
-        position: relative;
-        container-type: inline-size;
+      /* Loved: a gold glow. drop-shadow on the button, not box-shadow on the
+         bag, so the glow follows the gusset's clip-path outline. */
+      .loved button {
+        filter: drop-shadow(0 0 1.5px var(--gold)) drop-shadow(0 0 7px var(--gold));
       }
-      .stickers {
-        position: absolute;
-        top: 3cqw;
-        right: 6cqw;
-        display: flex;
-        flex-direction: row-reverse;
-        gap: 2cqw;
-      }
-      .sticker {
-        width: 20cqw;
-        height: 20cqw;
-        transform: rotate(-8deg);
-        filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.4));
-      }
-      .sticker.decaf { transform: rotate(6deg); }
-      .sticker .disc { fill: #f2f3f5; }
-      .sticker.loved .h { fill: #c9962e; }
-      .sticker.nope .f { fill: #3d4652; }
-      .sticker.nope .m {
-        fill: none;
-        stroke: #3d4652;
-        stroke-width: 1.8;
-        stroke-linecap: round;
-      }
-      .sticker.decaf text {
-        font-family: 'Fraunces', serif;
-        font-weight: 600;
-        font-size: 13px;
-        fill: #d4622a;
-      }
+      /* Nope: grey and dim */
       .nope .body {
-        filter: saturate(0.3);
-        opacity: 0.55;
+        filter: grayscale(1);
+        opacity: 0.45;
       }
       .bag button:hover .body,
       .bag button.sel .body {
