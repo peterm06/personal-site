@@ -6,8 +6,9 @@ no bundler, no dependencies at runtime.
 ## Philosophy: single-file pages
 
 Each page is one self-contained `.html` file at the repo root. CSS lives in a
-`<style>` block in the `<head>`; the only JavaScript is a tiny inline theme
-toggle. There is **no build step** — files are served as-is. Fonts (Fraunces +
+`<style>` block in the `<head>`. JavaScript is kept to a minimum: a tiny inline
+theme toggle on every page, plus the reading page's click-to-reveal listener
+(see below). There is **no build step** — files are served as-is. Fonts (Fraunces +
 Atkinson Hyperlegible) are the one external dependency, loaded from Google Fonts.
 
 Pages:
@@ -83,7 +84,6 @@ from the CSVs in `data/fitness/`:
 
 - `otf_workouts_full.csv` — Orangetheory sessions (dates, splat points, …)
 - `cp_classes.csv` — CorePower classes (append new rows here over time)
-- `otf_annotations.csv` — injury/closure notes (present but not rendered)
 
 The hero is a GitHub-style day-level calendar: one block per year (newest on
 top), one square per day. Color marks the era only — flat `--otf` for
@@ -150,8 +150,8 @@ Three things here are load-bearing:
   layout, that index lookup silently returns the wrong book.
 - **The "5 stars only" switch is CSS-only and driven by the URL fragment**, so
   the list is linkable as `/reading/#five-stars`. `body:has(#five-stars:target)`
-  swaps which section displays — no JavaScript, keeping the "only JS is the
-  theme toggle" rule intact; browsers without `:has()` just stay on the mosaic,
+  swaps which section displays — no JavaScript, so the click listener stays the
+  page's only non-theme script; browsers without `:has()` just stay on the mosaic,
   which is the default. The iOS-style track and knob are a *single* element that
   animates, with two absolutely-positioned anchors (`#five-stars` / `#top`)
   layered over it as hit areas, one hidden at a time — a checkbox would animate
