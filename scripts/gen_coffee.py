@@ -535,9 +535,10 @@ HTML = """<!doctype html>
         position: relative;
         display: inline-grid;
         justify-items: center;
-        gap: 0.4rem;
+        gap: 0.25rem; /* the same gap as a stat's number and label */
         margin-left: auto; /* pushes it to the far edge of the card */
-        align-self: center;
+        /* bottom-aligned, so its label shares a line with the stats' labels */
+        align-self: end;
       }}
       .switchtrack {{
         width: 46px;
@@ -559,12 +560,12 @@ HTML = """<!doctype html>
           transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
           background 220ms ease;
       }}
+      /* styled exactly like a stat's label, and it stays muted when on: the
+         gold track already says so */
       .switchlbl {{
-        font-size: 0.75rem;
-        line-height: 1;
+        font-size: 0.8rem;
         color: var(--muted);
         white-space: nowrap;
-        transition: color 200ms ease;
       }}
 
       /* the whole wrap is clickable, label included; only one anchor shows */
@@ -588,14 +589,12 @@ HTML = """<!doctype html>
         transform: translateX(19px);
         background: var(--ink);
       }}
-      body:has(#loved:target) .switchlbl {{ color: var(--paper); }}
       body:has(#loved:target) .to-list {{ display: none; }}
       body:has(#loved:target) .to-mosaic {{ display: block; }}
 
       @media (prefers-reduced-motion: reduce) {{
         .knob,
-        .switchtrack,
-        .switchlbl {{ transition: none; }}
+        .switchtrack {{ transition: none; }}
       }}
 
       /* --- five-star list view --- */
@@ -809,7 +808,7 @@ HTML = """<!doctype html>
             <span class="switchtrack" aria-hidden="true"
               ><span class="knob"></span
             ></span>
-            <span class="switchlbl">Loved only</span>
+            <span class="switchlbl">loved only</span>
             <a class="hit to-list" href="#loved"
               aria-label="Show only loved bags"></a>
             <a class="hit to-mosaic" href="#"
