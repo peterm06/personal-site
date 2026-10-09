@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
-"""Generate coffee/index.html from the CSVs in data/coffee/.
+"""Generate coffee/index.html from data/coffee/bags.csv.
 
-A shelf of coffee bags: one small bag per coffee, grouped into a block per year
-(newest on top), newest bag first within each year. Each bag is drawn in its
-roaster's two colours -- the bag colour behind the roaster's name, the label
-colour in a band at the bottom holding the coffee's name -- so every bag from
-one roaster matches. Loved bags glow gold around their
-edges; nope bags go grey and dim. Decaf is in the details, not on the bag.
+A coffee mosaic, built exactly like reading/: one small square per bag, in the
+order they were drunk, grouped into a block per year (newest on top). Colour is
+categorical, never a scale -- loved bags are filled from the same metallic
+gradient as /reading's five-star books, ok bags are one flat slate, and nope
+bags are a hollow slate outline, set apart by shape rather than hue so they
+read at 10px and for colourblind visitors. Decaf has no mark; it is in the
+details.
 
-The bags are plain HTML, not SVG, so the names are real text: selectable and
-findable with Cmd-F. Their gusset shape (folded top, angled corners) is a CSS
-clip-path, and the type scales with each bag via container query units.
+Selecting a square prints the bag (coffee, roaster, date, rating, decaf, and
+any notes) into a bar along the bottom. The "Loved only" switch swaps the
+mosaic for a list of loved bags, linkable as /coffee/#loved.
 
-It reads:  data/coffee/bags.csv      roaster, coffee, drank, rating, decaf, notes
-           data/coffee/roasters.csv  roaster, bag, label (hex colours)
-and writes: coffee/index.html        (served at /coffee/)
+It reads:  data/coffee/bags.csv  roaster, coffee, drank, rating, decaf, notes
+and writes: coffee/index.html    (served at /coffee/)
 
     python3 scripts/gen_coffee.py
 
 `drank` is a year ("2024") or a month ("2024-06"). Exact days are not asked
 for: old bags rarely have one. Within a year, bags with a month sort by it and
-bags without one keep their row order, so bags.csv is kept oldest first and
-new rows are appended at the bottom.
+bags without one count as earliest, keeping their row order, so bags.csv is
+kept oldest first and new rows are appended at the bottom.
 """
 
 import csv
@@ -31,22 +31,20 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BAGS = os.path.join(ROOT, "data", "coffee", "bags.csv")
-ROASTERS = os.path.join(ROOT, "data", "coffee", "roasters.csv")
 OUT = os.path.join(ROOT, "coffee", "index.html")
+
+# --- geometry: the same as /reading (SVG user units; viewBox scales them) ---
+CELL = 10
+GAP = 3
+PITCH = CELL + GAP
+YEAR_LABEL_H = 19   # space above each year's rows for its heading
+YEAR_GAP = 20       # space between year blocks
+PER_ROW_WIDE = 40   # bags per row on desktop
+PER_ROW_NARROW = 24 # bags per row under the mobile breakpoint
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 RATINGS = ("nope", "ok", "loved")
-HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
-
-# Text on a bag: near-black or near-white when the roaster's other colour does
-# not contrast enough with the surface it sits on.
-DARK_TEXT = "#1a2028"
-LIGHT_TEXT = "#f2f3f5"
-
-HEART = ('<svg class="love" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 '
-         '21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.2 0 3.9 1.3 5.2 3 1.3-1.7 '
-         '3-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>')
 
 
 def esc(s):
@@ -56,22 +54,6 @@ def esc(s):
 
 def fail(path, line, msg):
     sys.exit(f"{os.path.relpath(path, ROOT)}:{line}: {msg}")
-
-
-def read_roasters():
-    """Roaster name (case-insensitive) -> (bag colour, label colour)."""
-    roasters = {}
-    with open(ROASTERS, newline="") as f:
-        for n, r in enumerate(csv.DictReader(f), start=2):
-            name = r["roaster"].strip()
-            if not name:
-                continue
-            bag, label = r["bag"].strip(), r["label"].strip()
-            for c in (bag, label):
-                if not HEX.match(c):
-                    fail(ROASTERS, n, f"{c!r} is not a #rrggbb colour")
-            roasters[name.lower()] = (bag.lower(), label.lower())
-    return roasters
 
 
 def read_bags():
@@ -106,85 +88,101 @@ def read_bags():
     return bags
 
 
-def lum(hex_):
-    """WCAG relative luminance."""
-    def ch(v):
-        v /= 255
-        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
-    r, g, b = (int(hex_[i:i + 2], 16) for i in (1, 3, 5))
-    return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
-
-
-def contrast(a, b):
-    x, y = lum(a), lum(b)
-    return (max(x, y) + 0.05) / (min(x, y) + 0.05)
-
-
-def text_on(fill, other):
-    """The roaster's other colour if it reads on `fill`, else dark or light."""
-    if contrast(fill, other) >= 3.2:
-        return other
-    return DARK_TEXT if lum(fill) > 0.25 else LIGHT_TEXT
-
-
 def when(b):
     return f"{MONTHS[b['month'] - 1]} {b['year']}" if b["month"] else str(b["year"])
 
 
 def by_year(bags):
-    """Year -> bags, newest first. Within a year: by month (no month counts as
-    earliest), ties kept in file order, then the whole year reversed."""
+    """Year -> bags in the order they were drunk: by month (no month counts as
+    earliest), ties kept in file order."""
     years = {}
     for b in bags:
         years.setdefault(b["year"], []).append(b)
     for y in years:
         years[y].sort(key=lambda b: (b["month"], b["row"]))
-        years[y].reverse()
     return years
 
 
-def bag_html(b, roasters):
-    colours = roasters.get(b["roaster"].lower())
-    style = ""
-    if colours:
-        bag, label = colours
-        style = (f' style="--c1:{bag};--c2:{label};'
-                 f'--t1:{text_on(bag, label)};--t2:{text_on(label, bag)}"')
-    cls = ["bag", b["rating"]] + (["decaf"] if b["decaf"] else [])
-    parts = [b["coffee"], b["roaster"], when(b), b["rating"]]
+def label(b):
+    """What the readout bar prints: coffee, roaster, date, then rating (ok is
+    the default, so it goes unsaid) and decaf."""
+    parts = [f'{b["coffee"]} — {b["roaster"]}', when(b)]
+    if b["rating"] != "ok":
+        parts.append(b["rating"])
     if b["decaf"]:
         parts.append("decaf")
-    label = esc(" · ".join(parts))
-    notes = f' data-n="{esc(b["notes"])}"' if b["notes"] else ""
+    return " · ".join(parts)
+
+
+def build_svg(years, per_row, wide):
+    """One block per year, newest on top; bags wrap at per_row.
+
+    Only the wide layout carries data-b (and data-n, the notes). Both layouts
+    emit the same bags in the same order, so the click handler looks a narrow
+    square up in the wide layout by index, exactly as /reading does.
+    """
+    order = sorted(years, reverse=True)
+    width = per_row * PITCH - GAP
+
+    parts = []
+    y = 2
+    for year in order:
+        bags = years[year]
+        rows = -(-len(bags) // per_row)  # ceil
+        parts.append(
+            f'<text class="yr" x="0" y="{y + 13}">{year}</text>'
+            f'<text class="yn" x="{width}" y="{y + 13}" text-anchor="end">'
+            f'{len(bags)} bag{"s" if len(bags) != 1 else ""}</text>'
+        )
+        grid_top = y + YEAR_LABEL_H
+        for i, b in enumerate(bags):
+            cx = (i % per_row) * PITCH
+            cy = grid_top + (i // per_row) * PITCH
+            cls = "b" if b["rating"] == "ok" else f'b {b["rating"]}'
+            rect = (f'<rect class="{cls}" x="{cx}" y="{cy}" '
+                    f'width="{CELL}" height="{CELL}" rx="2"')
+            if wide:
+                notes = f' data-n="{esc(b["notes"])}"' if b["notes"] else ""
+                parts.append(f'{rect} data-b="{esc(label(b))}"{notes}/>')
+            else:
+                parts.append(f"{rect}/>")
+        y = grid_top + rows * PITCH + YEAR_GAP
+
+    height = y - YEAR_GAP + 2
     return (
-        f'<li class="{" ".join(cls)}"><button type="button" data-b="{label}"{notes}'
-        f' aria-label="{label}"><span class="body"{style}>'
-        f'<span class="r">{esc(b["roaster"])}</span>'
-        f'<span class="c">'
-        f'<span class="cn">{esc(b["coffee"])}</span></span>'
-        f"</span></button></li>"
+        f'<svg class="mosaic {"wide" if wide else "narrow"}" '
+        f'viewBox="0 0 {width} {height}" role="img" '
+        f'preserveAspectRatio="xMinYMin meet" '
+        f'aria-label="One square per bag of coffee, grouped by year from '
+        f'{order[0]} at the top down to {order[-1]}. Loved bags are picked '
+        f'out in metallic gold; bags that missed are hollow outlines. Select '
+        f'any square for the coffee, roaster, and date.">'
+        + "".join(parts) + "</svg>"
     )
 
 
-def build_shelf(years, roasters):
-    if not years:
-        return '<p class="none">No bags yet.</p>'
+def build_list(years):
+    """Loved bags only, grouped by year (newest first), in the order drunk."""
     blocks = []
     for year in sorted(years, reverse=True):
         bags = years[year]
-        loved = sum(b["rating"] == "loved" for b in bags)
-        cls = ["year"] + (["has-loved"] if loved else [])
-
-        def count(n, extra=""):
-            return f'{n} bag{"s" if n != 1 else ""}{extra}'
-
+        loved = [b for b in bags if b["rating"] == "loved"]
+        if not loved:
+            continue
+        items = "".join(
+            f'<li><span class="bullet" aria-hidden="true"></span>'
+            f'<span class="txt"><span class="t">{esc(b["coffee"])}</span>'
+            f'<span class="a">{esc(b["roaster"])}'
+            + (" · decaf" if b["decaf"] else "") + "</span>"
+            + (f'<span class="a n">{esc(b["notes"])}</span>' if b["notes"] else "")
+            + f'</span><span class="m">'
+            + (MONTHS[b["month"] - 1] if b["month"] else "") + "</span></li>"
+            for b in loved
+        )
         blocks.append(
-            f'<section class="{" ".join(cls)}" aria-label="{year}">'
-            f'<h2>{year}<span class="yn n-all">{count(len(bags))}</span>'
-            f'<span class="yn n-loved">{count(loved, " loved")}</span>'
-            f'</h2>'
-            f'<ol class="shelf">{"".join(bag_html(b, roasters) for b in bags)}</ol>'
-            f"</section>"
+            f'<div class="ygroup"><h2>{year}'
+            f'<span class="yn">{len(loved)} of {len(bags)} bags</span></h2>'
+            f"<ul>{items}</ul></div>"
         )
     return "\n        ".join(blocks)
 
@@ -197,14 +195,14 @@ HTML = """<!doctype html>
     <title>Coffee — Peter Miller</title>
     <meta
       name="description"
-      content="Every bag of coffee, in its roaster's colours."
+      content="{description}"
     />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Peter Miller" />
     <meta property="og:title" content="Coffee — Peter Miller" />
     <meta
       property="og:description"
-      content="Every bag of coffee, in its roaster's colours."
+      content="{description}"
     />
     <meta property="og:url" content="https://www.peterhmiller.com/coffee/" />
     <meta property="og:image" content="https://www.peterhmiller.com/og.png" />
@@ -236,10 +234,19 @@ HTML = """<!doctype html>
         --violet: #a982e3;
         --sheen-edge: var(--paper);
 
-        /* the loved switch and heart echo /reading's five-star gold; a bag
-           whose roaster has no colours yet falls back to /reading's slate */
-        --gold: #d4a24c;
+        /* the same palette as /reading: one flat slate for an ok bag, the metal
+           ramp for a loved one, and a hollow slate outline for a nope.
+           The ramp is bright at its peak -- on the dark ink those highlights
+           read as light catching a surface. Its floor stays high on purpose:
+           the variation is decorative, so no square should look dim enough to
+           suggest it is somehow *less* of a five-star than its neighbour. */
         --book: #3f4d60;
+        --metal-1: #a8822f;
+        --metal-2: #dcb468;
+        --metal-3: #f6e4b2;
+        --metal-4: #cfa147;
+        --metal-5: #b28f3c;
+        --metal-flat: #d4a24c;
       }}
 
       [data-theme='light'] {{
@@ -252,8 +259,19 @@ HTML = """<!doctype html>
         --indigo: #5560cf;
         --violet: #7e58c4;
         --sheen-edge: #1a2028;
-        --gold: #96701a;
+
+        /* Light mode inverts the problem. A metal's bright specular highlight
+           is invisible on paper, so here the ramp lives in a narrow mid-dark
+           band and gets its metallic quality from saturation shifts instead.
+           The neutral is lightened so five stars separate by value as well as
+           hue -- hue alone would fail for colourblind readers. */
         --book: #c0c9d3;
+        --metal-1: #7a5a12;
+        --metal-2: #a8801f;
+        --metal-3: #c9a134;
+        --metal-4: #96701a;
+        --metal-5: #86641a;
+        --metal-flat: #96701a;
       }}
 
       * {{
@@ -291,7 +309,10 @@ HTML = """<!doctype html>
         max-width: 44rem;
       }}
 
-      /* --- Cross-document view transitions (see CLAUDE.md) --- */
+      /* --- Cross-document view transitions ---
+         Same-origin navigations cross-fade instead of hard-cutting. Requires
+         http(s) (not file://) and is Chrome/Safari-only today; unsupported
+         browsers just navigate instantly, so this is purely additive. */
       @view-transition {{
         navigation: auto;
       }}
@@ -388,29 +409,135 @@ HTML = """<!doctype html>
       .summary-primary .stat:first-child .num {{
         font-size: 2.8rem;
       }}
-      .num svg {{
-        width: 18px;
-        height: 18px;
-        margin-right: 0.45rem;
-        fill: var(--gold);
-        vertical-align: 0.02em;
+      .num .dot {{
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        margin-right: 0.5rem;
+        vertical-align: 0.06em;
+        background: linear-gradient(
+          135deg,
+          var(--metal-2),
+          var(--metal-3),
+          var(--metal-4),
+          var(--metal-1)
+        );
       }}
 
-      /* --- "Loved only" switch: an iOS-style toggle, as on /reading, driven by
-             the URL fragment so /coffee/#loved is linkable. The target is an
-             empty span whose oversized scroll margin keeps the browser from
-             scrolling when it is targeted. */
-      .switches {{
-        display: flex;
-        gap: 1.5rem;
-        margin-left: auto; /* pushes them to the far edge of the card */
-        align-self: center;
+      /* --- the mosaic --- */
+      .hero {{
+        margin-top: 2.25rem;
       }}
+      svg.mosaic {{
+        display: block;
+        width: 100%;
+        height: auto;
+        overflow: visible;
+      }}
+      svg.narrow {{ display: none; }}
+
+      .mosaic .yr {{
+        font-family: 'Fraunces', serif;
+        font-weight: 600;
+        font-size: 13px;
+        fill: var(--muted);
+      }}
+      .mosaic .yn {{
+        font-family: 'Atkinson Hyperlegible', sans-serif;
+        font-size: 9.5px;
+        fill: var(--muted);
+        opacity: 0.75;
+      }}
+
+      .mosaic .b {{
+        fill: var(--book);
+        cursor: pointer;
+      }}
+      .mosaic .loved {{
+        fill: url(#metal);
+      }}
+      /* a nope is a hollow outline: set apart from ok by shape, not hue, so it
+         survives 10px and colourblind eyes, and it stays quiet. The fill is
+         transparent rather than none so the whole square is still clickable,
+         and the 1px inset stroke keeps it the same size as its neighbours. */
+      .mosaic .nope {{
+        fill: transparent;
+        stroke: var(--book);
+        stroke-width: 1.5;
+      }}
+
+      /* Hover previews the target, .sel marks the square whose bag is showing.
+         --paper inverts with the theme, so the outline reads against both the
+         slate and the gold. The stroke is centred on the edge, so half of it
+         sits in the 3px gutter and never touches a neighbour. */
+      .mosaic .b:hover,
+      .mosaic .b.sel {{
+        stroke: var(--paper);
+        stroke-width: 1.5;
+      }}
+
+      /* Under reduced motion, skip the drifting gradient entirely and use one
+         flat metal tone -- SMIL animation cannot be paused from CSS. */
+      @media (prefers-reduced-motion: reduce) {{
+        .mosaic .loved {{ fill: var(--metal-flat); }}
+      }}
+
+      footer {{
+        margin-top: 3rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        opacity: 0.8;
+      }}
+
+      .hint {{
+        margin-top: 1.1rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        opacity: 0.8;
+      }}
+
+      /* --- readout: a bar pinned to the bottom, at every width. Selecting a
+             square is the one way to read a bag off the mosaic, so the same
+             treatment runs on desktop and touch alike. --- */
+      .readout {{
+        display: none;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        background: var(--ink);
+        border-top: 1px solid var(--hairline);
+        color: var(--paper);
+        font-size: 0.85rem;
+        line-height: 1.45;
+        padding: 0.85rem 1.25rem;
+        padding-bottom: calc(0.85rem + env(safe-area-inset-bottom));
+      }}
+      .readout.show {{
+        display: flex;
+        justify-content: center;
+      }}
+      /* keep the text lined up with the page's own column instead of the
+         far-left edge of a wide bar */
+      .readout > span {{
+        width: 100%;
+        max-width: 44rem;
+      }}
+      /* nothing is hidden behind the fixed bar */
+      body:has(.readout.show) {{ padding-bottom: 7rem; }}
+      /* the readout describes a square in the mosaic, so it goes away with it */
+      body:has(#loved:target) .readout {{ display: none; }}
+
+      /* --- view switch: an iOS-style toggle --- */
       .switchwrap {{
         position: relative;
         display: inline-grid;
         justify-items: center;
         gap: 0.4rem;
+        margin-left: auto; /* pushes it to the far edge of the card */
+        align-self: center;
       }}
       .switchtrack {{
         width: 46px;
@@ -439,29 +566,31 @@ HTML = """<!doctype html>
         white-space: nowrap;
         transition: color 200ms ease;
       }}
+
+      /* the whole wrap is clickable, label included; only one anchor shows */
       .hit {{
         position: absolute;
         inset: -4px;
         border-radius: 10px;
       }}
-      .hit.off {{ display: none; }}
+      .to-mosaic {{ display: none; }}
       .hit:focus-visible {{
         outline: 2px solid var(--indigo);
         outline-offset: 2px;
       }}
-      .target {{
-        position: absolute;
-        scroll-margin-top: 100vh;
-      }}
 
-      body:has(#loved:target) .sw-loved .switchtrack {{ background: var(--gold); }}
-      body:has(#loved:target) .sw-loved .knob {{
+      /* "on" state. The knob takes --ink, which is the page background and so
+         is always the opposite of the gold it sits on, in either theme. */
+      body:has(#loved:target) .switchtrack {{
+        background: var(--metal-flat);
+      }}
+      body:has(#loved:target) .knob {{
         transform: translateX(19px);
         background: var(--ink);
       }}
-      body:has(#loved:target) .sw-loved .switchlbl {{ color: var(--paper); }}
-      body:has(#loved:target) .sw-loved .on {{ display: none; }}
-      body:has(#loved:target) .sw-loved .off {{ display: block; }}
+      body:has(#loved:target) .switchlbl {{ color: var(--paper); }}
+      body:has(#loved:target) .to-list {{ display: none; }}
+      body:has(#loved:target) .to-mosaic {{ display: block; }}
 
       @media (prefers-reduced-motion: reduce) {{
         .knob,
@@ -469,12 +598,21 @@ HTML = """<!doctype html>
         .switchlbl {{ transition: none; }}
       }}
 
-      /* --- the shelf --- */
-      .hero {{
+      /* --- five-star list view --- */
+      .list-view {{
+        display: none;
         margin-top: 2.25rem;
+        /* Jumping to #loved would scroll the list to the top of the
+           viewport, taking the switch with it and leaving no way back. An
+           oversized scroll margin puts the target above the document start, so
+           the browser clamps to the top and nothing moves -- while the URL stays
+           shareable. */
+        scroll-margin-top: 100vh;
       }}
-      .year + .year {{ margin-top: 2rem; }}
-      .year h2 {{
+      body:has(#loved:target) .hero {{ display: none; }}
+      body:has(#loved:target) .list-view {{ display: block; }}
+      .ygroup + .ygroup {{ margin-top: 2rem; }}
+      .ygroup h2 {{
         font-family: 'Fraunces', serif;
         font-weight: 600;
         font-size: 1.15rem;
@@ -483,162 +621,65 @@ HTML = """<!doctype html>
         align-items: baseline;
         gap: 0.6rem;
         padding-bottom: 0.5rem;
-        margin-bottom: 1rem;
         border-bottom: 1px solid var(--hairline);
       }}
-      .year .yn {{
+      .ygroup h2 .yn {{
         font-family: 'Atkinson Hyperlegible', sans-serif;
         font-size: 0.75rem;
         font-weight: 400;
         margin-left: auto;
         opacity: 0.75;
       }}
-      .n-loved {{ display: none; }}
-
-      .shelf {{
+      .ygroup ul {{
         list-style: none;
+        margin-top: 0.85rem;
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-        gap: 1rem 0.9rem;
+        gap: 0.9rem;
       }}
-
-      /* filtering: hide what does not match, then any year left empty, and
-         swap each year's count for the filtered one */
-      body:has(#loved:target) .bag:not(.loved),
-      body:has(#loved:target) .year:not(.has-loved),
-      body:has(#loved:target) .n-all {{ display: none; }}
-      body:has(#loved:target) .n-loved {{ display: inline; }}
-
-      .bag button {{
-        display: block;
-        width: 100%;
-        padding: 0;
-        border: 0;
-        background: none;
-        font: inherit;
-        color: inherit;
-        text-align: left;
-        cursor: pointer;
+      .ygroup li {{
+        display: grid;
+        grid-template-columns: 11px 1fr auto;
+        gap: 0.7rem;
+        align-items: baseline;
+        font-size: 0.95rem;
+        line-height: 1.4;
+      }}
+      /* title on its own line, author beneath it */
+      .ygroup .t,
+      .ygroup .a {{ display: block; }}
+      .ygroup .bullet {{
+        width: 11px;
+        height: 11px;
         border-radius: 3px;
+        /* the SVG gradient cannot be reused in HTML, so this is the same ramp
+           expressed as a CSS gradient -- matching the legend and card dot */
+        background: linear-gradient(
+          135deg,
+          var(--metal-2),
+          var(--metal-3),
+          var(--metal-4),
+          var(--metal-1)
+        );
+        transform: translateY(0.1em);
       }}
-      .bag button:focus-visible {{
-        outline: 2px solid var(--indigo);
-        outline-offset: 3px;
-      }}
-
-      /* One bag: the roaster's bag colour behind its name, its label colour in
-         a band holding the coffee. A gusset bag: folded top, angled corners.
-         Type is sized in cqw so it scales with the bag at every width. */
-      .body {{
-        --c1: var(--book);
-        --c2: var(--hairline);
-        --t1: var(--paper);
-        --t2: var(--paper);
-        container-type: inline-size;
-        aspect-ratio: 5 / 7;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        background: var(--c1);
-        color: var(--t1);
-        clip-path: polygon(7% 0, 93% 0, 100% 4%, 100% 100%, 0 100%, 0 4%);
-        box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.14);
-        transition: opacity 160ms ease;
-      }}
-      /* the folded top */
-      .body::before {{
-        content: '';
-        position: absolute;
-        inset: 0 0 auto;
-        height: 13cqw;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.3);
-        background: rgba(255, 255, 255, 0.07);
-      }}
-      .body .r {{
-        font-family: 'Fraunces', serif;
-        font-weight: 600;
-        font-size: 15cqw;
-        line-height: 1.02;
-        padding: 23cqw 9cqw 0;
-        text-wrap: balance;
-      }}
-      .body .c {{
-        margin-top: auto;
-        min-height: 27%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        background: var(--c2);
-        color: var(--t2);
-        font-size: 10.5cqw;
-        line-height: 1.2;
-        padding: 5cqw 9cqw;
-      }}
-      /* Loved: a gold glow. drop-shadow on the button, not box-shadow on the
-         bag, so the glow follows the gusset's clip-path outline. */
-      .loved button {{
-        filter: drop-shadow(0 0 1.5px var(--gold)) drop-shadow(0 0 7px var(--gold));
-      }}
-      /* Nope: grey and dim */
-      .nope .body {{
-        filter: grayscale(1);
-        opacity: 0.45;
-      }}
-      .bag button:hover .body,
-      .bag button.sel .body {{
-        outline: 2px solid var(--paper);
-        outline-offset: -2px;
-      }}
-
-      .none {{
+      .ygroup .a {{
         color: var(--muted);
-      }}
-
-      footer {{
-        margin-top: 3rem;
-        color: var(--muted);
-        font-size: 0.8rem;
-        opacity: 0.8;
-      }}
-
-      .hint {{
-        margin-top: 1.1rem;
-        color: var(--muted);
-        font-size: 0.8rem;
-        opacity: 0.8;
-      }}
-
-      /* --- readout: a bar pinned to the bottom, as on /reading --- */
-      .readout {{
-        display: none;
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 10;
-        background: var(--ink);
-        border-top: 1px solid var(--hairline);
-        color: var(--paper);
         font-size: 0.85rem;
-        line-height: 1.45;
-        padding: 0.85rem 1.25rem;
-        padding-bottom: calc(0.85rem + env(safe-area-inset-bottom));
+        margin-top: 0.15rem;
       }}
-      .readout.show {{
-        display: flex;
-        justify-content: center;
-      }}
-      .readout > span {{
-        width: 100%;
-        max-width: 44rem;
-      }}
-      #readout-notes {{
+      .ygroup .n {{ font-style: italic; }}
+      .readout .notes {{
         display: block;
         color: var(--muted);
       }}
-      body:has(.readout.show) {{ padding-bottom: 8rem; }}
+      .ygroup .m {{
+        color: var(--muted);
+        font-size: 0.75rem;
+        white-space: nowrap;
+        opacity: 0.7;
+      }}
 
+      /* --- narrow screens: fewer books per row so squares stay legible --- */
       @media (max-width: 600px) {{
         .summary-card {{ width: 100%; }}
         .summary-primary {{
@@ -646,9 +687,16 @@ HTML = """<!doctype html>
           text-align: center;
           gap: 1.25rem 2.5rem;
         }}
+        /* the total gets its own row, the other stat shares the next one --
+           without this they wrap lopsided */
         .summary-primary .stat:first-child {{ flex-basis: 100%; }}
-        .switches {{ margin-left: 0; }}
-        .shelf {{ grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }}
+        /* the switch drops to its own centred row rather than hugging an edge */
+        .switchwrap {{
+          margin-left: 0;
+          justify-self: center;
+        }}
+        svg.wide {{ display: none; }}
+        svg.narrow {{ display: block; }}
       }}
 
       /* --- theme toggle (same as index) --- */
@@ -718,44 +766,73 @@ HTML = """<!doctype html>
       </svg>
     </button>
 
-    <main>
-      <span class="target" id="loved"></span>
+    <!-- One shared metal ramp, referenced by both layouts. userSpaceOnUse means
+         each square samples the ramp at its own coordinates, so squares in
+         different years catch different highlights; reflect tiles it down the
+         page; the drift makes it read as metal rather than flat yellow. -->
+    <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+      <defs>
+        <linearGradient id="metal" gradientUnits="userSpaceOnUse"
+          spreadMethod="reflect" x1="0" y1="0" x2="230" y2="290">
+          <stop offset="0%" stop-color="var(--metal-1)" />
+          <stop offset="22%" stop-color="var(--metal-2)" />
+          <stop offset="40%" stop-color="var(--metal-3)" />
+          <stop offset="58%" stop-color="var(--metal-4)" />
+          <stop offset="80%" stop-color="var(--metal-5)" />
+          <stop offset="100%" stop-color="var(--metal-2)" />
+          <animateTransform attributeName="gradientTransform" type="translate"
+            values="-230 0;230 0;-230 0" dur="20s" repeatCount="indefinite" />
+        </linearGradient>
+      </defs>
+    </svg>
 
+    <main>
       <p class="eyebrow"><a href="/">&larr; Peter Miller</a></p>
       <h1>Coffee by the numbers</h1>
       <p class="lede">
-        {lede}
+        {description}
       </p>
 
       <div class="summary-card">
         <div class="summary-primary">
-          <div class="stat"><div class="num">{total}</div><div class="lbl">bags</div></div>
-          <div class="stat"><div class="num">{heart}{loved}</div><div class="lbl">loved</div></div>
+          <div class="stat"><div class="num">{total}</div><div class="lbl">{total_lbl}</div></div>
+          <div class="stat"><div class="num"><span class="dot"></span>{loved}</div><div class="lbl">loved</div></div>
 
-          <!-- CSS-only filter, driven by the URL fragment (see the switch
-               styles above and /reading's 5-star switch). -->
-          <div class="switches">
-            <div class="switchwrap sw-loved">
-              <span class="switchtrack" aria-hidden="true"
-                ><span class="knob"></span
-              ></span>
-              <span class="switchlbl">Loved only</span>
-              <a class="hit on" href="#loved" aria-label="Show only loved bags"></a>
-              <a class="hit off" href="#" aria-label="Show all bags"></a>
-            </div>
+          <!-- CSS-only view switch, driven by the URL fragment so the loved
+               view is linkable as /coffee/#loved. The track and knob are
+               a single element that animates via `body:has(#loved:target)`;
+               the two anchors are invisible hit areas layered over it, one of
+               which is hidden at any time. (A checkbox would animate the same
+               way but could not be linked to, and would disagree with the hash
+               if someone arrived on one.) -->
+          <div class="switchwrap">
+            <span class="switchtrack" aria-hidden="true"
+              ><span class="knob"></span
+            ></span>
+            <span class="switchlbl">Loved only</span>
+            <a class="hit to-list" href="#loved"
+              aria-label="Show only loved bags"></a>
+            <a class="hit to-mosaic" href="#"
+              aria-label="Show all bags"></a>
           </div>
         </div>
       </div>
 
-      <section class="hero" aria-label="Coffee bags by year">
-        {shelf}
+      <section class="hero" aria-label="Coffee mosaic">
+        {svg_wide}
+        {svg_narrow}
         {hint}
       </section>
 
-      <!-- Readout bar. Selecting a bag prints its details here. -->
+      <!-- Readout bar. Selecting a square prints its bag here, on desktop and
+           touch alike; hidden until something is selected. -->
       <p class="readout" id="readout" role="status" aria-live="polite">
-        <span><span id="readout-text"></span><span id="readout-notes"></span></span>
+        <span><span id="readout-text"></span><span class="notes" id="readout-notes"></span></span>
       </p>
+
+      <section class="list-view" id="loved" aria-label="Loved bags by year">
+        {list_html}
+      </section>
 
       {footer}
     </main>
@@ -786,14 +863,22 @@ HTML = """<!doctype html>
         }})
       }})()
 
-      /* Readout. Selecting a bag prints its details, and notes if it has
-         any, into the bar at the bottom -- as on /reading. */
+      /* Readout. Selecting a square prints its bag into the bar at the bottom
+         -- the same interaction on desktop and touch, rather than a native
+         hover tooltip the phone could never reach.
+
+         Only the wide layout carries data-b (and data-n) labels. Both layouts
+         emit the same bags in the same order, so a narrow square is looked up
+         in the (hidden but present) wide layout at the same index. */
       ;(function () {{
-        var shelf = document.querySelector('.hero')
+        var wide = document.querySelector('svg.wide')
+        var narrow = document.querySelector('svg.narrow')
         var out = document.getElementById('readout')
         var text = document.getElementById('readout-text')
         var notes = document.getElementById('readout-notes')
-        if (!shelf || !out) return
+        if (!wide || !out || !text) return
+
+        var wideRects = wide.getElementsByTagName('rect')
         var selected = null
 
         function clear() {{
@@ -804,22 +889,37 @@ HTML = """<!doctype html>
           notes.textContent = ''
         }}
 
-        shelf.addEventListener('click', function (e) {{
-          var b = e.target.closest ? e.target.closest('button[data-b]') : null
-          if (!b) return clear()
-          if (selected) selected.classList.remove('sel')
-          b.classList.add('sel')
-          selected = b
-          text.textContent = b.getAttribute('data-b')
-          notes.textContent = b.getAttribute('data-n') || ''
-          out.classList.add('show')
-        }})
+        /* the wide square holding this bag's labels */
+        function labelled(rect, svg) {{
+          if (rect.hasAttribute('data-b')) return rect
+          var i = Array.prototype.indexOf.call(svg.getElementsByTagName('rect'), rect)
+          return wideRects[i] || null
+        }}
+
+        function wire(svg) {{
+          if (!svg) return
+          svg.addEventListener('click', function (e) {{
+            var rect = e.target.closest ? e.target.closest('rect') : null
+            if (!rect) return clear() // clicking the gutter dismisses
+
+            var src = labelled(rect, svg)
+            if (!src) return clear()
+
+            if (selected) selected.classList.remove('sel')
+            rect.classList.add('sel')
+            selected = rect
+            text.textContent = src.getAttribute('data-b')
+            notes.textContent = src.getAttribute('data-n') || ''
+            out.classList.add('show')
+          }})
+        }}
+
+        wire(wide)
+        wire(narrow)
 
         document.addEventListener('keydown', function (e) {{
           if (e.key === 'Escape') clear()
         }})
-        /* a filter can hide the selected bag; the bar goes with it */
-        window.addEventListener('hashchange', clear)
       }})()
     </script>
   </body>
@@ -828,32 +928,36 @@ HTML = """<!doctype html>
 
 
 def main():
-    roasters = read_roasters()
     bags = read_bags()
     years = by_year(bags)
     loved = sum(b["rating"] == "loved" for b in bags)
 
-    missing = sorted({b["roaster"] for b in bags} - {
-        b["roaster"] for b in bags if b["roaster"].lower() in roasters})
-    for r in missing:
-        print(f"  note: no colours for {r!r} in roasters.csv; using the default")
-
-    # The footer comes from the data, not the clock, so regenerating unchanged
-    # data yields a byte-identical file.
-    footer = ""
     if bags:
-        newest = years[max(years)][0]
-        footer = f"<footer>Last bag: {when(newest)}</footer>"
+        first = min(years)
+        description = f"Every bag of coffee since {first}, one square at a time."
+        total_lbl = f"bags since {first}"
+        wide = build_svg(years, PER_ROW_WIDE, wide=True)
+        narrow = build_svg(years, PER_ROW_NARROW, wide=False)
+        hint = ('<p class="hint">Click or tap a square for the coffee, '
+                'roaster, and date.</p>')
+        # The footer comes from the data, not the clock, so regenerating
+        # unchanged data yields a byte-identical file.
+        footer = f"<footer>Last bag: {when(years[max(years)][-1])}</footer>"
+    else:
+        description = "Every bag of coffee, one square at a time."
+        total_lbl = "bags"
+        wide = narrow = footer = ""
+        hint = '<p class="hint">No bags yet.</p>'
 
     html = HTML.format(
+        description=description,
         total=f"{len(bags):,}",
+        total_lbl=total_lbl,
         loved=f"{loved:,}",
-        heart=HEART.replace(' class="love"', ""),
-        shelf=build_shelf(years, roasters),
-        lede=(f"Every bag of coffee since {min(years)}, in its roaster's colours."
-              if bags else "Every bag of coffee, in its roaster's colours."),
-        hint=('<p class="hint">Click or tap a bag for the details.</p>'
-              if bags else ""),
+        svg_wide=wide,
+        svg_narrow=narrow,
+        hint=hint,
+        list_html=build_list(years),
         footer=footer,
     )
 
@@ -861,9 +965,10 @@ def main():
     with open(OUT, "w") as f:
         f.write(html)
 
+    nope = sum(b["rating"] == "nope" for b in bags)
     print(f"Wrote {OUT}")
-    print(f"  {len(bags)} bags, {loved} loved, "
-          f"{sum(b['decaf'] for b in bags)} decaf, {len(roasters)} roasters")
+    print(f"  {len(bags)} bags, {loved} loved, {nope} nope, "
+          f"{sum(b['decaf'] for b in bags)} decaf")
     print(f"  size: {os.path.getsize(OUT) / 1024:.0f} KB")
 
 

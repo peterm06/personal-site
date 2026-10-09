@@ -18,7 +18,7 @@ Pages:
   **Generated** — see below; do not hand-edit.
 - `reading/index.html` — the reading page, a book mosaic. **Generated** — see
   below; do not hand-edit.
-- `coffee/index.html` — the coffee page, a shelf of bags. **Generated** — see
+- `coffee/index.html` — the coffee page, a mosaic of bags. **Generated** — see
   below; do not hand-edit.
 - `404.html` — the not-found page. Cloudflare Pages serves a root `404.html` for
   any unmatched URL (without it, Pages falls back to `index.html` with a 200), so
@@ -83,10 +83,9 @@ the output.
 
 The reading mosaic adds `--book` (an ordinary book) and `--metal-1..5` plus
 `--metal-flat` (the five-star gold ramp). `index.html` carries flat `--gold` and
-`--book` too, so its teaser squares match the page they link to, plus
-`--bag-1..4` and `--bag-label` for the coffee teaser's little bags (the bag
-colours are the same in both themes, like the roaster colours on /coffee; only
-`--bag-label` darkens in light mode so the band does not vanish on paper).
+`--book` too, so its teaser squares match the pages they link to (the coffee
+teaser adds a hollow square for a nope), plus `--roast`, the coffee link's
+hover accent.
 
 ## The workouts page (generated)
 
@@ -175,46 +174,33 @@ Three things here are load-bearing:
 ## The coffee page (generated)
 
 `coffee/index.html` is produced by [`scripts/gen_coffee.py`](scripts/gen_coffee.py)
-from two hand-kept CSVs in `data/coffee/` (new bags usually arrive through the
-Site Inbox):
-
-- `bags.csv` — `roaster, coffee, drank, rating, decaf, notes`. `drank` is `YYYY`
-  or `YYYY-MM` (old bags rarely have a day, so none is asked for); `rating` is
-  `nope` / `ok` / `loved`; `decaf` is `yes` or blank. Kept oldest first, new
-  rows appended at the bottom.
-- `roasters.csv` — `roaster, bag, label`: two `#rrggbb` colours per roaster.
+from `data/coffee/bags.csv`, kept by hand (new bags usually arrive through the
+Site Inbox): `roaster, coffee, drank, rating, decaf, notes`. `drank` is `YYYY`
+or `YYYY-MM` (old bags rarely have a day, so none is asked for); `rating` is
+`nope` / `ok` / `loved`; `decaf` is `yes` or blank. Kept oldest first, new rows
+appended at the bottom.
 
 ```bash
 python3 scripts/gen_coffee.py
 ```
 
-The generator fails with a file and line number on a malformed row, and notes
-any roaster with no colours (those bags fall back to `--book`).
+The generator fails with a file and line number on a malformed row.
 
-Things that are load-bearing:
+It is **a copy of /reading on purpose**: the same mosaic geometry, metal
+gradient, readout bar, wide/narrow SVG pair with the index lookup, and
+fragment-driven switch (`/coffee/#loved` swaps the mosaic for a list of loved
+bags). Everything said about /reading above holds here, so change the two
+together. What differs:
 
-- **Colours belong to the roaster, not the bag.** Every bag from one roaster
-  matches by design; fix a roaster's colours once in `roasters.csv`. They are
-  the roaster's own colours, so they do not change with the theme. Text colour
-  on each surface is picked by the generator (the roaster's other colour if it
-  passes 3.2:1 contrast, else near-black or near-white).
-- **Bags are HTML, not SVG.** A gusset bag is a `clip-path` on a `5 / 7` box
-  with `container-type: inline-size`, and its type is sized in `cqw`, so it
-  scales with the bag at every width with one layout and no breakpoint swap.
-  Names stay real text, selectable and findable with ⌘F.
-- **Rating is the bag's treatment, not a mark.** Loved bags glow gold
-  (`drop-shadow` on the button, so the glow follows the gusset's clip-path;
-  `box-shadow` would be clipped away); nope bags go greyscale and dim; ok bags
-  are plain. Decaf has no mark on the bag by choice; it shows in the readout.
-- **Order.** Years newest first; within a year, newest first by month, with
-  month-less bags counted as earliest and ties kept in row order.
-- **The "Loved only" switch** works exactly like /reading's 5-star switch:
-  CSS-only, driven by the fragment (`/coffee/#loved`). The target is an empty
-  span with `scroll-margin-top: 100vh` so targeting it never scrolls. Each
-  year pre-renders both counts and filtering swaps which one shows, hiding
-  years with no loved bags.
-- **Click-to-reveal** is the same bar as /reading: a delegated `click` listener
-  reads `data-b` (and `data-n`, the notes) off the bag's button.
+- **Three categories, not two.** Loved takes the metal, ok the flat `--book`,
+  and nope is a **hollow** `--book` outline (`fill: transparent` so the square
+  stays clickable). Hollow differs by shape, not hue, so it reads at 10px and
+  for colourblind readers without drawing the eye to the misses.
+- **Decaf has no mark** by choice; it shows in the readout and the list.
+- **Order.** Within a year, by month with month-less bags counted as earliest,
+  ties kept in row order.
+- The wide squares carry `data-n` (notes) beside `data-b`; the readout prints
+  it on a second line.
 
 ## Previewing
 

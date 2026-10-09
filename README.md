@@ -10,20 +10,17 @@ My personal site, built with help from Claude.
   hand-edit.**
 - `reading/index.html` — book mosaic (`/reading/`). **Generated — do not
   hand-edit.**
-- `coffee/index.html` — coffee bag shelf (`/coffee/`). **Generated — do not
+- `coffee/index.html` — coffee mosaic (`/coffee/`). **Generated — do not
   hand-edit.**
 - `404.html` — not-found page, served by the host for any unknown URL
 
 ## Regenerating the coffee page
 
-`coffee/index.html` is built from two hand-kept CSVs in `data/coffee/`:
-
-- `bags.csv` — `roaster, coffee, drank, rating, decaf, notes`. `drank` is
-  `YYYY` or `YYYY-MM`; `rating` is `nope`, `ok` or `loved`; `decaf` is `yes` or
-  blank; `notes` is optional. Keep it oldest first and append new bags at the
-  bottom: within a year, bags without a month keep their row order.
-- `roasters.csv` — `roaster, bag, label`: each roaster's two `#rrggbb` colours,
-  shared by every bag from that roaster.
+`coffee/index.html` is built from `data/coffee/bags.csv`, kept by hand:
+`roaster, coffee, drank, rating, decaf, notes`. `drank` is `YYYY` or `YYYY-MM`;
+`rating` is `nope`, `ok` or `loved`; `decaf` is `yes` or blank; `notes` is
+optional. Keep it oldest first and append new bags at the bottom: within a
+year, bags without a month keep their row order.
 
 ```bash
 python3 scripts/gen_coffee.py

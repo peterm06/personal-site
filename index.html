@@ -46,13 +46,7 @@
         --sheen-edge: var(--paper); /* gradient endpoints on the name */
         --gold: #d4a24c; /* five-star metal, echoed from /reading */
         --book: #3f4d60; /* an ordinary book, echoed from /reading */
-        /* teaser bags for /coffee: roaster-like colours, which (like the bags
-           on that page) stay put across themes; only the label band shifts */
-        --bag-1: #b5503a;
-        --bag-2: #4f79b5;
-        --bag-3: #2d5a4b;
-        --bag-4: #a07d55;
-        --bag-label: #efe3cf;
+        --roast: #c26a4a; /* the coffee link's hover accent */
       }
 
       [data-theme='light'] {
@@ -67,7 +61,7 @@
         --sheen-edge: #1a2028;
         --gold: #96701a; /* deeper on paper: a pale gold would vanish */
         --book: #c0c9d3;
-        --bag-label: #cbb48c; /* a cream band would vanish on paper */
+        --roast: #a14a2b;
       }
 
       /* --- Cross-document view transitions ---
@@ -271,9 +265,9 @@
         --hue: var(--gold);
       }
 
-      /* the coffee page's accent is a roaster's terracotta */
+      /* the coffee page shares /reading's gold, so its accent is a roast */
       .pages a:nth-child(3) {
-        --hue: var(--bag-1);
+        --hue: var(--roast);
       }
 
       .pages .squares {
@@ -305,22 +299,11 @@
         background: var(--book);
       }
 
-      /* coffee teaser: small bags instead of squares, each with a label band */
-      .pages .squares.bags {
-        gap: 5px;
+      /* a coffee that missed: a hollow outline, as on /coffee */
+      .pages .sq.h {
+        background: transparent;
+        box-shadow: inset 0 0 0 1.5px var(--book);
       }
-
-      .pages .bg {
-        width: 9px;
-        height: 13px;
-        border-radius: 1.5px 1.5px 2px 2px;
-        background: linear-gradient(var(--c) 68%, var(--bag-label) 68%);
-      }
-
-      .pages .bg.a { --c: var(--bag-1); }
-      .pages .bg.b { --c: var(--bag-2); }
-      .pages .bg.c { --c: var(--bag-3); }
-      .pages .bg.d { --c: var(--bag-4); }
 
       .pages .name {
         font-family: 'Fraunces', serif;
@@ -572,30 +555,30 @@
         </a>
 
         <a href="/coffee/">
-          <span class="squares bags" aria-hidden="true">
-            <span class="bg a"></span>
-            <span class="bg b"></span>
-            <span class="bg c"></span>
-            <span class="bg a"></span>
-            <span class="bg d"></span>
-            <span class="bg b"></span>
-            <span class="bg c"></span>
-            <span class="bg d"></span>
-            <span class="bg a"></span>
-            <span class="bg b"></span>
-            <span class="bg c"></span>
-            <span class="bg a"></span>
-            <span class="bg d"></span>
-            <span class="bg c"></span>
-            <span class="bg b"></span>
-            <span class="bg a"></span>
+          <span class="squares" aria-hidden="true">
+            <span class="sq g"></span>
+            <span class="sq b"></span>
+            <span class="sq h"></span>
+            <span class="sq b"></span>
+            <span class="sq g"></span>
+            <span class="sq b"></span>
+            <span class="sq b"></span>
+            <span class="sq h"></span>
+            <span class="sq g"></span>
+            <span class="sq b"></span>
+            <span class="sq g"></span>
+            <span class="sq b"></span>
+            <span class="sq h"></span>
+            <span class="sq b"></span>
+            <span class="sq b"></span>
+            <span class="sq g"></span>
           </span>
           <span class="name"
             >Coffee by the numbers<span class="arrow" aria-hidden="true"
               >&rarr;</span
             ></span
           >
-          <span class="handle">every bag, in its roaster's colours</span>
+          <span class="handle">every bag since 2026</span>
         </a>
       </section>
 
