@@ -7,8 +7,8 @@ no bundler, no dependencies at runtime.
 
 Each page is one self-contained `.html` file at the repo root. CSS lives in a
 `<style>` block in the `<head>`. JavaScript is kept to a minimum: a tiny inline
-theme toggle on every page, plus the reading page's click-to-reveal listener
-(see below). There is **no build step** — files are served as-is. Fonts (Fraunces +
+theme toggle on every page, plus the reading and coffee pages' click-to-reveal
+listeners (see below). There is **no build step** — files are served as-is. Fonts (Fraunces +
 Atkinson Hyperlegible) are the one external dependency, loaded from Google Fonts.
 
 Pages:
@@ -17,6 +17,8 @@ Pages:
 - `workouts/index.html` — the fitness page, a day-level workout calendar.
   **Generated** — see below; do not hand-edit.
 - `reading/index.html` — the reading page, a book mosaic. **Generated** — see
+  below; do not hand-edit.
+- `coffee/index.html` — the coffee page, a shelf of bags. **Generated** — see
   below; do not hand-edit.
 - `404.html` — the not-found page. Cloudflare Pages serves a root `404.html` for
   any unmatched URL (without it, Pages falls back to `index.html` with a 200), so
@@ -81,7 +83,10 @@ the output.
 
 The reading mosaic adds `--book` (an ordinary book) and `--metal-1..5` plus
 `--metal-flat` (the five-star gold ramp). `index.html` carries flat `--gold` and
-`--book` too, so its teaser squares match the page they link to.
+`--book` too, so its teaser squares match the page they link to, plus
+`--bag-1..4` and `--bag-label` for the coffee teaser's little bags (the bag
+colours are the same in both themes, like the roaster colours on /coffee; only
+`--bag-label` darkens in light mode so the band does not vanish on paper).
 
 ## The workouts page (generated)
 
@@ -166,6 +171,47 @@ Three things here are load-bearing:
   purpose: it puts the anchor above the document start so the browser clamps to
   the top, meaning the switch never scrolls itself off screen. The list renders
   as real HTML (not SVG) so titles are selectable and findable with ⌘F.
+
+## The coffee page (generated)
+
+`coffee/index.html` is produced by [`scripts/gen_coffee.py`](scripts/gen_coffee.py)
+from two hand-kept CSVs in `data/coffee/` (new bags usually arrive through the
+Site Inbox):
+
+- `bags.csv` — `roaster, coffee, drank, rating, decaf, notes`. `drank` is `YYYY`
+  or `YYYY-MM` (old bags rarely have a day, so none is asked for); `rating` is
+  `nope` / `ok` / `loved`; `decaf` is `yes` or blank. Kept oldest first, new
+  rows appended at the bottom.
+- `roasters.csv` — `roaster, bag, label`: two `#rrggbb` colours per roaster.
+
+```bash
+python3 scripts/gen_coffee.py
+```
+
+The generator fails with a file and line number on a malformed row, and notes
+any roaster with no colours (those bags fall back to `--book`).
+
+Things that are load-bearing:
+
+- **Colours belong to the roaster, not the bag.** Every bag from one roaster
+  matches by design; fix a roaster's colours once in `roasters.csv`. They are
+  the roaster's own colours, so they do not change with the theme. Text colour
+  on each surface is picked by the generator (the roaster's other colour if it
+  passes 3.2:1 contrast, else near-black or near-white).
+- **Bags are HTML, not SVG.** A gusset bag is a `clip-path` on a `5 / 7` box
+  with `container-type: inline-size`, and its type is sized in `cqw`, so it
+  scales with the bag at every width with one layout and no breakpoint swap.
+  Names stay real text, selectable and findable with ⌘F.
+- **Order.** Years newest first; within a year, newest first by month, with
+  month-less bags counted as earliest and ties kept in row order.
+- **The "Loved only" / "Decaf only" switches** work exactly like /reading's
+  5-star switch: CSS-only, driven by the fragment (`/coffee/#loved`,
+  `/coffee/#decaf`), one at a time. The targets are empty spans with
+  `scroll-margin-top: 100vh` so targeting them never scrolls. Each year
+  pre-renders all three counts and filtering swaps which one shows, hiding
+  years with nothing left.
+- **Click-to-reveal** is the same bar as /reading: a delegated `click` listener
+  reads `data-b` (and `data-n`, the notes) off the bag's button.
 
 ## Previewing
 
