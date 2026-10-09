@@ -202,19 +202,19 @@ Things that are load-bearing:
   with `container-type: inline-size`, and its type is sized in `cqw`, so it
   scales with the bag at every width with one layout and no breakpoint swap.
   Names stay real text, selectable and findable with ⌘F.
-- **Ratings read from a mark, not only colour.** Loved and nope bags carry
-  a round sticker in the top corner, a gold heart or a grey broken heart, in
-  fixed colours so it never reads as part of the roaster's print. It sits
-  outside the bag's clip so it stays bright when a nope bag fades. Ok bags
-  carry nothing.
+- **Stickers mark rating and decaf.** Round stickers straddle the bag's fold
+  line, top right: a gold heart for loved, a frowny face for nope (nope bags
+  also fade), an orange D for decaf. They are in fixed colours so they never
+  read as part of the roaster's print, and sit outside the bag's clip (sized
+  in `cqw` of the button) so they stay bright when a nope bag fades. Every
+  roaster name starts below the stickers, sticker or not, so names line up.
 - **Order.** Years newest first; within a year, newest first by month, with
   month-less bags counted as earliest and ties kept in row order.
-- **The "Loved only" / "Decaf only" switches** work exactly like /reading's
-  5-star switch: CSS-only, driven by the fragment (`/coffee/#loved`,
-  `/coffee/#decaf`), one at a time. The targets are empty spans with
-  `scroll-margin-top: 100vh` so targeting them never scrolls. Each year
-  pre-renders all three counts and filtering swaps which one shows, hiding
-  years with nothing left.
+- **The "Loved only" switch** works exactly like /reading's 5-star switch:
+  CSS-only, driven by the fragment (`/coffee/#loved`). The target is an empty
+  span with `scroll-margin-top: 100vh` so targeting it never scrolls. Each
+  year pre-renders both counts and filtering swaps which one shows, hiding
+  years with no loved bags.
 - **Click-to-reveal** is the same bar as /reading: a delegated `click` listener
   reads `data-b` (and `data-n`, the notes) off the bag's button.
 

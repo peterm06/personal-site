@@ -205,11 +205,10 @@
         vertical-align: 0.02em;
       }
 
-      /* --- filter switches: iOS-style toggles, as on /reading. Each is driven
-             by the URL fragment, so /coffee/#loved and /coffee/#decaf are
-             linkable; one filter is on at a time because there is one
-             fragment. The targets are empty spans whose oversized scroll
-             margin keeps the browser from scrolling when they are targeted. */
+      /* --- "Loved only" switch: an iOS-style toggle, as on /reading, driven by
+             the URL fragment so /coffee/#loved is linkable. The target is an
+             empty span whose oversized scroll margin keeps the browser from
+             scrolling when it is targeted. */
       .switches {
         display: flex;
         gap: 1.5rem;
@@ -265,18 +264,13 @@
       }
 
       body:has(#loved:target) .sw-loved .switchtrack { background: var(--gold); }
-      body:has(#decaf:target) .sw-decaf .switchtrack { background: var(--sky); }
-      body:has(#loved:target) .sw-loved .knob,
-      body:has(#decaf:target) .sw-decaf .knob {
+      body:has(#loved:target) .sw-loved .knob {
         transform: translateX(19px);
         background: var(--ink);
       }
-      body:has(#loved:target) .sw-loved .switchlbl,
-      body:has(#decaf:target) .sw-decaf .switchlbl { color: var(--paper); }
-      body:has(#loved:target) .sw-loved .on,
-      body:has(#decaf:target) .sw-decaf .on { display: none; }
-      body:has(#loved:target) .sw-loved .off,
-      body:has(#decaf:target) .sw-decaf .off { display: block; }
+      body:has(#loved:target) .sw-loved .switchlbl { color: var(--paper); }
+      body:has(#loved:target) .sw-loved .on { display: none; }
+      body:has(#loved:target) .sw-loved .off { display: block; }
 
       @media (prefers-reduced-motion: reduce) {
         .knob,
@@ -308,8 +302,7 @@
         margin-left: auto;
         opacity: 0.75;
       }
-      .n-loved,
-      .n-decaf { display: none; }
+      .n-loved { display: none; }
 
       .shelf {
         list-style: none;
@@ -321,13 +314,9 @@
       /* filtering: hide what does not match, then any year left empty, and
          swap each year's count for the filtered one */
       body:has(#loved:target) .bag:not(.loved),
-      body:has(#decaf:target) .bag:not(.decaf),
       body:has(#loved:target) .year:not(.has-loved),
-      body:has(#decaf:target) .year:not(.has-decaf),
-      body:has(#loved:target) .n-all,
-      body:has(#decaf:target) .n-all { display: none; }
-      body:has(#loved:target) .n-loved,
-      body:has(#decaf:target) .n-decaf { display: inline; }
+      body:has(#loved:target) .n-all { display: none; }
+      body:has(#loved:target) .n-loved { display: inline; }
 
       .bag button {
         display: block;
@@ -380,7 +369,9 @@
         font-weight: 600;
         font-size: 15cqw;
         line-height: 1.02;
-        padding: 23cqw 9cqw 0;
+        /* always starts below the fold-line stickers, sticker or not, so
+           every name sits at the same height */
+        padding: 26cqw 9cqw 0;
         text-wrap: balance;
       }
       .body .c {
@@ -395,42 +386,40 @@
         line-height: 1.2;
         padding: 5cqw 9cqw;
       }
-      .body .dc {
-        font-size: 7.5cqw;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        margin-bottom: 1cqw;
+      /* stickers straddle the fold line (13cqw down), top right */
+      .bag button {
+        position: relative;
+        container-type: inline-size;
       }
-      /* the rating sticker, top corner */
-      .bag button { position: relative; }
-      /* a float keeps only the lines beside the sticker clear of it, so a
-         long name still uses the full width below */
-      .loved .body .r::before,
-      .nope .body .r::before {
-        content: '';
-        float: right;
-        width: 23cqw;
-        height: 17cqw;
+      .stickers {
+        position: absolute;
+        top: 3cqw;
+        right: 6cqw;
+        display: flex;
+        flex-direction: row-reverse;
+        gap: 2cqw;
       }
       .sticker {
-        position: absolute;
-        right: 6%;
-        top: 12%;
-        width: 23%;
-        height: auto;
-        aspect-ratio: 1;
+        width: 20cqw;
+        height: 20cqw;
         transform: rotate(-8deg);
         filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.4));
       }
+      .sticker.decaf { transform: rotate(6deg); }
       .sticker .disc { fill: #f2f3f5; }
       .sticker.loved .h { fill: #c9962e; }
-      .sticker.nope .h { fill: #6b7480; }
-      .sticker .crack {
+      .sticker.nope .f { fill: #3d4652; }
+      .sticker.nope .m {
         fill: none;
-        stroke: #f2f3f5;
-        stroke-width: 1.5;
-        stroke-linejoin: round;
+        stroke: #3d4652;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+      }
+      .sticker.decaf text {
+        font-family: 'Fraunces', serif;
+        font-weight: 600;
+        font-size: 13px;
+        fill: #d4622a;
       }
       .nope .body {
         filter: saturate(0.3);
@@ -498,11 +487,7 @@
           gap: 1.25rem 2.5rem;
         }
         .summary-primary .stat:first-child { flex-basis: 100%; }
-        .switches {
-          margin-left: 0;
-          flex-basis: 100%;
-          justify-content: center;
-        }
+        .switches { margin-left: 0; }
         .shelf { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
       }
 
@@ -575,12 +560,11 @@
 
     <main>
       <span class="target" id="loved"></span>
-      <span class="target" id="decaf"></span>
 
       <p class="eyebrow"><a href="/">&larr; Peter Miller</a></p>
-      <h1>Coffee by the bag</h1>
+      <h1>Coffee by the numbers</h1>
       <p class="lede">
-        Every bag of coffee I've finished, in its roaster's colours.
+        Every bag of coffee, in its roaster's colours.
       </p>
 
       <div class="summary-card">
@@ -588,7 +572,7 @@
           <div class="stat"><div class="num">0</div><div class="lbl">bags</div></div>
           <div class="stat"><div class="num"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.2 0 3.9 1.3 5.2 3 1.3-1.7 3-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>0</div><div class="lbl">loved</div></div>
 
-          <!-- CSS-only filters, driven by the URL fragment (see the switch
+          <!-- CSS-only filter, driven by the URL fragment (see the switch
                styles above and /reading's 5-star switch). -->
           <div class="switches">
             <div class="switchwrap sw-loved">
@@ -597,14 +581,6 @@
               ></span>
               <span class="switchlbl">Loved only</span>
               <a class="hit on" href="#loved" aria-label="Show only loved bags"></a>
-              <a class="hit off" href="#" aria-label="Show all bags"></a>
-            </div>
-            <div class="switchwrap sw-decaf">
-              <span class="switchtrack" aria-hidden="true"
-                ><span class="knob"></span
-              ></span>
-              <span class="switchlbl">Decaf only</span>
-              <a class="hit on" href="#decaf" aria-label="Show only decaf bags"></a>
               <a class="hit off" href="#" aria-label="Show all bags"></a>
             </div>
           </div>

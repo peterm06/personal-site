@@ -5,8 +5,8 @@ A shelf of coffee bags: one small bag per coffee, grouped into a block per year
 (newest on top), newest bag first within each year. Each bag is drawn in its
 roaster's two colours -- the bag colour behind the roaster's name, the label
 colour in a band at the bottom holding the coffee's name -- so every bag from
-one roaster matches. Loved bags carry a heart sticker, nope bags a broken-heart sticker and fade back, decaf bags
-say so in the band.
+one roaster matches. Stickers on the fold mark loved bags
+(a heart), nope bags (a frowny face; they also fade) and decaf (a D).
 
 The bags are plain HTML, not SVG, so the names are real text: selectable and
 findable with Cmd-F. Their gusset shape (folded top, angled corners) is a CSS
@@ -49,20 +49,32 @@ HEART = ('<svg class="love" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 
          '3-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>')
 
 
-# Loved and nope bags carry a round sticker in the top corner: a heart or a
-# broken heart. The sticker is in fixed colours, not the roaster's, so it never
-# reads as part of the print, and it sits outside the bag's clip-path so it
-# stays bright when a nope bag fades. Ok bags carry nothing.
-_HEART_IN_DISC = ('<path class="h" transform="translate(4.6 4.9) scale(.62)" d="M12 '
-                  '21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.2 0 3.9 1.3 5.2 3 1.3-1.7 '
-                  '3-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/>')
+# Stickers sit across the bag's fold line, top right: a gold heart for loved,
+# a frowny face for nope, and an orange D for decaf (decaf bags are
+# traditionally orange). They are round and in fixed colours, not the
+# roaster's, so they never read as part of the print, and they sit outside the
+# bag's clip-path so they stay bright when a nope bag fades. Ok bags carry no
+# rating sticker.
+_DISC = '<circle class="disc" cx="12" cy="12" r="11"/>'
 STICKERS = {
     "loved": ('<svg class="sticker loved" viewBox="0 0 24 24" aria-hidden="true">'
-              '<circle class="disc" cx="12" cy="12" r="11"/>' + _HEART_IN_DISC + '</svg>'),
+              + _DISC + '<path class="h" transform="translate(4.6 4.9) scale(.62)" '
+              'd="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.2 0 3.9 1.3 5.2 '
+              '3 1.3-1.7 3-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 '
+              '21z"/></svg>'),
     "nope": ('<svg class="sticker nope" viewBox="0 0 24 24" aria-hidden="true">'
-             '<circle class="disc" cx="12" cy="12" r="11"/>' + _HEART_IN_DISC +
-             '<path class="crack" d="M12.3 7.6 10.6 11.2 13.2 13.4 11.5 17.6"/></svg>'),
+             + _DISC + '<circle class="f" cx="8.6" cy="9.6" r="1.35"/>'
+             '<circle class="f" cx="15.4" cy="9.6" r="1.35"/>'
+             '<path class="m" d="M7.8 17q4.2-4 8.4 0"/></svg>'),
+    "decaf": ('<svg class="sticker decaf" viewBox="0 0 24 24" aria-hidden="true">'
+              + _DISC + '<text x="12" y="16.6" text-anchor="middle">D</text></svg>'),
 }
+
+
+def stickers(b):
+    """Rating sticker rightmost, decaf beside it."""
+    out = STICKERS.get(b["rating"], "") + (STICKERS["decaf"] if b["decaf"] else "")
+    return f'<span class="stickers">{out}</span>' if out else ""
 
 
 def esc(s):
@@ -176,9 +188,9 @@ def bag_html(b, roasters):
         f'<li class="{" ".join(cls)}"><button type="button" data-b="{label}"{notes}'
         f' aria-label="{label}"><span class="body"{style}>'
         f'<span class="r">{esc(b["roaster"])}</span>'
-        f'<span class="c">{"<span class=dc>Decaf</span>" if b["decaf"] else ""}'
+        f'<span class="c">'
         f'<span class="cn">{esc(b["coffee"])}</span></span>'
-        f"</span>{STICKERS.get(b['rating'], '')}</button></li>"
+        f"</span>{stickers(b)}</button></li>"
     )
 
 
@@ -189,8 +201,7 @@ def build_shelf(years, roasters):
     for year in sorted(years, reverse=True):
         bags = years[year]
         loved = sum(b["rating"] == "loved" for b in bags)
-        decaf = sum(b["decaf"] for b in bags)
-        cls = ["year"] + (["has-loved"] if loved else []) + (["has-decaf"] if decaf else [])
+        cls = ["year"] + (["has-loved"] if loved else [])
 
         def count(n, extra=""):
             return f'{n} bag{"s" if n != 1 else ""}{extra}'
@@ -199,7 +210,7 @@ def build_shelf(years, roasters):
             f'<section class="{" ".join(cls)}" aria-label="{year}">'
             f'<h2>{year}<span class="yn n-all">{count(len(bags))}</span>'
             f'<span class="yn n-loved">{count(loved, " loved")}</span>'
-            f'<span class="yn n-decaf">{count(decaf, " decaf")}</span></h2>'
+            f'</h2>'
             f'<ol class="shelf">{"".join(bag_html(b, roasters) for b in bags)}</ol>'
             f"</section>"
         )
@@ -413,11 +424,10 @@ HTML = """<!doctype html>
         vertical-align: 0.02em;
       }}
 
-      /* --- filter switches: iOS-style toggles, as on /reading. Each is driven
-             by the URL fragment, so /coffee/#loved and /coffee/#decaf are
-             linkable; one filter is on at a time because there is one
-             fragment. The targets are empty spans whose oversized scroll
-             margin keeps the browser from scrolling when they are targeted. */
+      /* --- "Loved only" switch: an iOS-style toggle, as on /reading, driven by
+             the URL fragment so /coffee/#loved is linkable. The target is an
+             empty span whose oversized scroll margin keeps the browser from
+             scrolling when it is targeted. */
       .switches {{
         display: flex;
         gap: 1.5rem;
@@ -473,18 +483,13 @@ HTML = """<!doctype html>
       }}
 
       body:has(#loved:target) .sw-loved .switchtrack {{ background: var(--gold); }}
-      body:has(#decaf:target) .sw-decaf .switchtrack {{ background: var(--sky); }}
-      body:has(#loved:target) .sw-loved .knob,
-      body:has(#decaf:target) .sw-decaf .knob {{
+      body:has(#loved:target) .sw-loved .knob {{
         transform: translateX(19px);
         background: var(--ink);
       }}
-      body:has(#loved:target) .sw-loved .switchlbl,
-      body:has(#decaf:target) .sw-decaf .switchlbl {{ color: var(--paper); }}
-      body:has(#loved:target) .sw-loved .on,
-      body:has(#decaf:target) .sw-decaf .on {{ display: none; }}
-      body:has(#loved:target) .sw-loved .off,
-      body:has(#decaf:target) .sw-decaf .off {{ display: block; }}
+      body:has(#loved:target) .sw-loved .switchlbl {{ color: var(--paper); }}
+      body:has(#loved:target) .sw-loved .on {{ display: none; }}
+      body:has(#loved:target) .sw-loved .off {{ display: block; }}
 
       @media (prefers-reduced-motion: reduce) {{
         .knob,
@@ -516,8 +521,7 @@ HTML = """<!doctype html>
         margin-left: auto;
         opacity: 0.75;
       }}
-      .n-loved,
-      .n-decaf {{ display: none; }}
+      .n-loved {{ display: none; }}
 
       .shelf {{
         list-style: none;
@@ -529,13 +533,9 @@ HTML = """<!doctype html>
       /* filtering: hide what does not match, then any year left empty, and
          swap each year's count for the filtered one */
       body:has(#loved:target) .bag:not(.loved),
-      body:has(#decaf:target) .bag:not(.decaf),
       body:has(#loved:target) .year:not(.has-loved),
-      body:has(#decaf:target) .year:not(.has-decaf),
-      body:has(#loved:target) .n-all,
-      body:has(#decaf:target) .n-all {{ display: none; }}
-      body:has(#loved:target) .n-loved,
-      body:has(#decaf:target) .n-decaf {{ display: inline; }}
+      body:has(#loved:target) .n-all {{ display: none; }}
+      body:has(#loved:target) .n-loved {{ display: inline; }}
 
       .bag button {{
         display: block;
@@ -588,7 +588,9 @@ HTML = """<!doctype html>
         font-weight: 600;
         font-size: 15cqw;
         line-height: 1.02;
-        padding: 23cqw 9cqw 0;
+        /* always starts below the fold-line stickers, sticker or not, so
+           every name sits at the same height */
+        padding: 26cqw 9cqw 0;
         text-wrap: balance;
       }}
       .body .c {{
@@ -603,42 +605,40 @@ HTML = """<!doctype html>
         line-height: 1.2;
         padding: 5cqw 9cqw;
       }}
-      .body .dc {{
-        font-size: 7.5cqw;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        margin-bottom: 1cqw;
+      /* stickers straddle the fold line (13cqw down), top right */
+      .bag button {{
+        position: relative;
+        container-type: inline-size;
       }}
-      /* the rating sticker, top corner */
-      .bag button {{ position: relative; }}
-      /* a float keeps only the lines beside the sticker clear of it, so a
-         long name still uses the full width below */
-      .loved .body .r::before,
-      .nope .body .r::before {{
-        content: '';
-        float: right;
-        width: 23cqw;
-        height: 17cqw;
+      .stickers {{
+        position: absolute;
+        top: 3cqw;
+        right: 6cqw;
+        display: flex;
+        flex-direction: row-reverse;
+        gap: 2cqw;
       }}
       .sticker {{
-        position: absolute;
-        right: 6%;
-        top: 12%;
-        width: 23%;
-        height: auto;
-        aspect-ratio: 1;
+        width: 20cqw;
+        height: 20cqw;
         transform: rotate(-8deg);
         filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.4));
       }}
+      .sticker.decaf {{ transform: rotate(6deg); }}
       .sticker .disc {{ fill: #f2f3f5; }}
       .sticker.loved .h {{ fill: #c9962e; }}
-      .sticker.nope .h {{ fill: #6b7480; }}
-      .sticker .crack {{
+      .sticker.nope .f {{ fill: #3d4652; }}
+      .sticker.nope .m {{
         fill: none;
-        stroke: #f2f3f5;
-        stroke-width: 1.5;
-        stroke-linejoin: round;
+        stroke: #3d4652;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+      }}
+      .sticker.decaf text {{
+        font-family: 'Fraunces', serif;
+        font-weight: 600;
+        font-size: 13px;
+        fill: #d4622a;
       }}
       .nope .body {{
         filter: saturate(0.3);
@@ -706,11 +706,7 @@ HTML = """<!doctype html>
           gap: 1.25rem 2.5rem;
         }}
         .summary-primary .stat:first-child {{ flex-basis: 100%; }}
-        .switches {{
-          margin-left: 0;
-          flex-basis: 100%;
-          justify-content: center;
-        }}
+        .switches {{ margin-left: 0; }}
         .shelf {{ grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }}
       }}
 
@@ -783,12 +779,11 @@ HTML = """<!doctype html>
 
     <main>
       <span class="target" id="loved"></span>
-      <span class="target" id="decaf"></span>
 
       <p class="eyebrow"><a href="/">&larr; Peter Miller</a></p>
-      <h1>Coffee by the bag</h1>
+      <h1>Coffee by the numbers</h1>
       <p class="lede">
-        Every bag of coffee I've finished, in its roaster's colours.
+        {lede}
       </p>
 
       <div class="summary-card">
@@ -796,7 +791,7 @@ HTML = """<!doctype html>
           <div class="stat"><div class="num">{total}</div><div class="lbl">bags</div></div>
           <div class="stat"><div class="num">{heart}{loved}</div><div class="lbl">loved</div></div>
 
-          <!-- CSS-only filters, driven by the URL fragment (see the switch
+          <!-- CSS-only filter, driven by the URL fragment (see the switch
                styles above and /reading's 5-star switch). -->
           <div class="switches">
             <div class="switchwrap sw-loved">
@@ -805,14 +800,6 @@ HTML = """<!doctype html>
               ></span>
               <span class="switchlbl">Loved only</span>
               <a class="hit on" href="#loved" aria-label="Show only loved bags"></a>
-              <a class="hit off" href="#" aria-label="Show all bags"></a>
-            </div>
-            <div class="switchwrap sw-decaf">
-              <span class="switchtrack" aria-hidden="true"
-                ><span class="knob"></span
-              ></span>
-              <span class="switchlbl">Decaf only</span>
-              <a class="hit on" href="#decaf" aria-label="Show only decaf bags"></a>
               <a class="hit off" href="#" aria-label="Show all bags"></a>
             </div>
           </div>
@@ -922,6 +909,8 @@ def main():
         loved=f"{loved:,}",
         heart=HEART.replace(' class="love"', ""),
         shelf=build_shelf(years, roasters),
+        lede=(f"Every bag of coffee since {min(years)}, in its roaster's colours."
+              if bags else "Every bag of coffee, in its roaster's colours."),
         hint=('<p class="hint">Click or tap a bag for the details.</p>'
               if bags else ""),
         footer=footer,
