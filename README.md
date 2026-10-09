@@ -4,10 +4,11 @@ My personal site, built with help from Claude.
 
 ## Pages
 
-- `index.html` — landing page (`/`): name, profile links, contact info
-- `workouts/index.html` — fitness calendar (`/workouts`). **Generated — do not
+- `index.html` — landing page (`/`): name, profile links,
+  and teasers linking to the workouts and reading pages
+- `workouts/index.html` — fitness calendar (`/workouts/`). **Generated — do not
   hand-edit.**
-- `reading/index.html` — book mosaic (`/reading`). **Generated — do not
+- `reading/index.html` — book mosaic (`/reading/`). **Generated — do not
   hand-edit.**
 
 ## Regenerating the reading page
@@ -55,8 +56,8 @@ see the site as deployed, serve it:
 python3 -m http.server 8000
 ```
 
-Then visit <http://localhost:8000>. This also exercises the real `/workouts`
-URL, which `file://` cannot.
+Then visit <http://localhost:8000>. This also exercises the real `/workouts/`
+and `/reading/` URLs, which `file://` cannot.
 
 ## History: how the workouts data was originally assembled
 

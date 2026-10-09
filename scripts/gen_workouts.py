@@ -145,10 +145,9 @@ def build_svg(otf_days, cp_days):
             row = (di + start_dow) % 7
             x = PAD_L + col * COL_W
             y = grid_top + row * ROW_H
-            fill, cls = cell_attrs(d, otf_days, cp_days)
+            cls = cell_class(d, otf_days, cp_days)
             parts.append(
-                f'<rect class="{cls}" x="{x}" y="{y}" width="{CELL}" '
-                f'height="{CELL}" rx="2.5" fill="{fill}"/>'
+                f'<rect class="{cls}" x="{x}" y="{y}"/>'
             )
             d += dt.timedelta(days=1)
 
@@ -156,12 +155,15 @@ def build_svg(otf_days, cp_days):
     return "\n      ".join(parts)
 
 
-def cell_attrs(d, otf_days, cp_days):
+def cell_class(d, otf_days, cp_days):
+    # Size, corner radius and fill come from CSS (.heatmap .cell and friends),
+    # not per-rect attributes: with ~6,500 squares across the two layouts,
+    # repeating them on every <rect> roughly doubled the page.
     if d in otf_days:
-        return "var(--otf)", "cell otf"
+        return "cell otf"
     if d in cp_days:
-        return "var(--cp)", "cell cp"
-    return "var(--empty)", "cell empty"
+        return "cell cp"
+    return "cell empty"
 
 
 def build_svg_mobile(otf_days, cp_days):
@@ -202,10 +204,9 @@ def build_svg_mobile(otf_days, cp_days):
                 row = (di + start_dow) % 7
                 x = ox + col * COL_W
                 y = grid_top + row * ROW_H
-                fill, cls = cell_attrs(d, otf_days, cp_days)
+                cls = cell_class(d, otf_days, cp_days)
                 parts.append(
-                    f'<rect class="{cls}" x="{x}" y="{y}" width="{CELL}" '
-                    f'height="{CELL}" rx="2.5" fill="{fill}"/>'
+                    f'<rect class="{cls}" x="{x}" y="{y}"/>'
                 )
                 d += dt.timedelta(days=1)
 
@@ -467,9 +468,15 @@ HTML = """<!doctype html>
         fill: var(--muted);
       }}
       .heatmap .cell {{
+        width: {cell}px;
+        height: {cell}px;
+        rx: 2.5px;
         stroke: rgba(0, 0, 0, 0.18);
         stroke-width: 0.5;
       }}
+      .heatmap .otf {{ fill: var(--otf); }}
+      .heatmap .cp {{ fill: var(--cp); }}
+      .heatmap .empty {{ fill: var(--empty); }}
       [data-theme='light'] .heatmap .cell {{
         stroke: rgba(0, 0, 0, 0.06);
       }}
@@ -636,6 +643,7 @@ def main():
         cp_count=f"{len(cp_dates):,}",
         last_date=fmt_long(last),
         last_date_iso=last.isoformat(),
+        cell=CELL,
     )
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
