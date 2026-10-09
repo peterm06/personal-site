@@ -18,6 +18,12 @@ Pages:
   **Generated** — see below; do not hand-edit.
 - `reading/index.html` — the reading page, a book mosaic. **Generated** — see
   below; do not hand-edit.
+- `404.html` — the not-found page. Cloudflare Pages serves a root `404.html` for
+  any unmatched URL (without it, Pages falls back to `index.html` with a 200), so
+  every asset and link in it is root-absolute (`/favicon.svg`, `/`). The 404 is
+  drawn in the same squares as the subpages, with one square missing from the
+  last 4; that square drifts underneath (CSS-only, after
+  ascii.rest/not-found's ghost).
 
 The directory-plus-index layout on subpages is deliberate: it yields clean
 `/workouts` and `/reading` URLs on any static host without extensionless-URL
